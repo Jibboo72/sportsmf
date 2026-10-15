@@ -211,7 +211,7 @@ const TEAM_LGS = LEAGUES.filter(l => l.type === 'team');
 const COLLEGE_LGS = LEAGUES.filter(l => l.college);
 const BOOKS = ['DraftKings','FanDuel','Bet365','BetMGM','Fanatics','Hard Rock','theScore','BetRivers','betPARX','Caesars','ESPN BET'];
 const BOOK_MAP = {draftkings:'DraftKings', fanduel:'FanDuel', betmgm:'BetMGM', caesars:'Caesars', espnbet:'ESPN BET', bet365:'Bet365', fanatics:'Fanatics', hardrock:'Hard Rock', hardrockbet:'Hard Rock', betrivers:'BetRivers', thescore:'theScore', betparx:'betPARX'};
-const BUILD = '2026-10-15 v3';
+const BUILD = '2026-10-15 v4';
 /* The Call Sheet lives on the same site (jibboo72.github.io), so its saved
    data and its published odds file are both readable from here. */
 const CS_KEY = 'nfl-call-sheet-v3';
@@ -278,6 +278,48 @@ function csBets(){
     });
   } catch (e){ return []; }
 }
+/* Call Sheet weeks, calculated exactly the way the Call Sheet does it:
+   week 1 starts 2026-09-08 and runs to the following Monday, then
+   Tuesday–Monday blocks, using the same UTC date it uses for "today". */
+const CS_WEEK1 = '2026-09-08';
+function csAddDays(s, n){ const d = new Date(s + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
+function csWeekNow(){
+  const t = new Date().toISOString().slice(0, 10);
+  if (t < CS_WEEK1) return 0;
+  const d = new Date(CS_WEEK1 + 'T00:00:00Z');
+  const w1End = csAddDays(CS_WEEK1, (1 - d.getUTCDay() + 7) % 7);
+  if (t <= w1End) return 1;
+  for (let n = 2; n <= 30; n++) if (t <= csAddDays(w1End, 7 * (n - 1))) return n;
+  return null;
+}
+/* Same math as the Call Sheet's bankStats(): paper skipped, pushes return
+   the stake, fixed returns and boosts honored. Dollars. */
+function csWeekStats(wk){
+  if (!S.showCS) return null;
+  try {
+    const raw = localStorage.getItem(CS_KEY);
+    if (!raw) return null;
+    const s = JSON.parse(raw);
+    const bets = (s && s.bank && s.bank.bets) || [];
+    let staked = 0, ret = 0, open = 0, w = 0, l = 0, p = 0;
+    const dec = am => { am = Number(am); if (!am || isNaN(am)) return null; return am > 0 ? 1 + am / 100 : 1 + 100 / Math.abs(am); };
+    const pay = (st, x) => {
+      if (x.fixedReturn !== null && x.fixedReturn !== undefined) return Number(x.fixedReturn);
+      const dd = dec(x.odds); const base = dd ? st * dd : st;
+      return x.boost ? st + (base - st) * (1 + Number(x.boost) / 100) : base;
+    };
+    bets.forEach(x => {
+      if (!x || x.paper || Number(x.wk) !== Number(wk)) return;
+      const st = Number(x.stake) || 0;
+      if (x.result === 'W'){ staked += st; ret += pay(st, x); w++; }
+      else if (x.result === 'L'){ staked += st; l++; }
+      else if (x.result === 'P'){ staked += st; ret += st; p++; }
+      else open += st;
+    });
+    return {pl: ret - staked, staked, open, w, l, p};
+  } catch (e){ return null; }
+}
+const signedMoney = v => (v > 0 ? '+' : v < 0 ? '−' : '') + '$' + Math.abs(v).toFixed(2);
 let _cs = {t: 0, v: []};
 function csCached(){ if (Date.now() - _cs.t > 4000) _cs = {t: Date.now(), v: csBets()}; return _cs.v; }
 /* Call Sheet game bets carry "AWAY @ HOME" plus the game date. Match that
@@ -991,7 +1033,9 @@ VIEWS.bets = {
     const settled = all.filter(b => b.status !== 'open').sort((a, b) => (b.settled || 0) - (a.settled || 0));
     const t0 = fromYmd(today()).getTime();
     const sumSince = since => settled.filter(b => (b.settled || 0) >= since).reduce((s, b) => s + profit(b), 0);
-    const td = sumSince(t0), wk = sumSince(t0 - 6 * 864e5);
+    const td = sumSince(t0);
+    const wkNo = csWeekNow();
+    const wkStats = wkNo !== null ? csWeekStats(wkNo) : null;
     const cls = v => v > 0 ? 'pos' : v < 0 ? 'neg' : '';
     const list = f === 'open' ? open : settled;
     const per = perPage(avail, 360, 77, 2);
@@ -1010,7 +1054,7 @@ VIEWS.bets = {
       <div class="tiles3" style="margin-top:12px">
         <div class="stat"><span class="lbl">Open</span><b>${open.length}</b></div>
         <div class="stat"><span class="lbl">Today</span><b class="${cls(td)}">${fmtU(td)}</b></div>
-        <div class="stat"><span class="lbl">7 days</span><b class="${cls(wk)}">${fmtU(wk)}</b></div>
+        <div class="stat"><span class="lbl">Week ${wkNo === null ? '' : wkNo}</span>${wkStats ? `<b class="${cls(wkStats.pl)}" style="font-size:${Math.abs(wkStats.pl) >= 1000 ? 22 : 26}px">${signedMoney(wkStats.pl)}</b>` : '<b>—</b>'}</div>
       </div>
       <div class="chips" style="margin-top:14px">${chip('Open (' + open.length + ')', 'open')}${chip('Settled', 'settled')}</div>
       <div style="margin-top:4px">${pg.items.length ? pg.items.map(row).join('') : `<div class="empty">${f === 'open' ? 'No open bets. Add one below.' : 'Nothing settled yet.'}</div>`}</div>
