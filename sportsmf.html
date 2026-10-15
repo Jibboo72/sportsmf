@@ -212,7 +212,7 @@ const TEAM_LGS = LEAGUES.filter(l => l.type === 'team');
 const COLLEGE_LGS = LEAGUES.filter(l => l.college);
 const BOOKS = ['DraftKings','FanDuel','Bet365','BetMGM','Fanatics','Hard Rock','theScore','BetRivers','betPARX','Caesars','ESPN BET'];
 const BOOK_MAP = {draftkings:'DraftKings', fanduel:'FanDuel', betmgm:'BetMGM', caesars:'Caesars', espnbet:'ESPN BET', bet365:'Bet365', fanatics:'Fanatics', hardrock:'Hard Rock', hardrockbet:'Hard Rock', betrivers:'BetRivers', thescore:'theScore', betparx:'betPARX'};
-const BUILD = '2026-10-15 v7';
+const BUILD = '2026-10-15 v8';
 /* The Call Sheet lives on the same site (jibboo72.github.io), so its saved
    data and its published odds file are both readable from here. */
 const CS_KEY = 'nfl-call-sheet-v3';
@@ -1554,7 +1554,15 @@ setInterval(() => {
   const n = cur().name;
   if (['tonight', 'game', 'league'].includes(n)) render(true);
 }, 30000);
-document.addEventListener('visibilitychange', () => { if (!document.hidden && ['tonight','game','league','bets'].includes(cur().name)) render(true); });
+/* Re-read Call Sheet data whenever it could have changed: coming back to
+   this tab or app, Safari restoring the page, or the Call Sheet saving
+   while both are open (the 'storage' event fires in this tab then). */
+const FORM_VIEWS = ['addbet', 'addteam', 'settings'];
+function refreshFromCS(){ _cs = {t: 0, v: []}; if (!FORM_VIEWS.includes(cur().name) && $('#sheet').hidden) render(true); }
+document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshFromCS(); });
+window.addEventListener('pageshow', e => { if (e.persisted) refreshFromCS(); });
+window.addEventListener('focus', refreshFromCS);
+window.addEventListener('storage', e => { if (!e.key || e.key === CS_KEY) refreshFromCS(); });
 let rT; window.addEventListener('resize', () => { clearTimeout(rT); rT = setTimeout(() => render(true), 250); });
 /* Home-screen apps on iOS can hang on to an old copy of this page. On each
    open, re-read this same file from the site and offer a reload if it has
