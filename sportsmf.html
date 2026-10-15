@@ -18,10 +18,16 @@
 :root{
   --ink:#0B0B0C;--silver:#B0B7BC;--line:#D9DDE0;--soft:#F4F6F7;--muted:#4E565C;--dim:#6B7378;
   --blue:#0076B6;--blue2:#3A9BDC;--red:#D50A0A;--green:#14A44D;--green-t:#0E8A3E;--green-bg:#E8F6EE;--red-bg:#FDECEC;
-  --bg:#FFFFFF;
+  --bg:#FFFFFF;--card:#FFFFFF;--on-ink:#FFFFFF;
   --disp:'Saira Condensed',system-ui,sans-serif;
   --body:'Geist',system-ui,-apple-system,'Segoe UI',sans-serif;
 }
+:root[data-theme="dark"]{
+  --ink:#F1F3F4;--silver:#59616A;--line:#2A2F35;--soft:#191C21;--muted:#A6AEB5;--dim:#8B949B;
+  --blue:#3A9BDC;--blue2:#6CB8EA;--red:#FF5252;--green:#22C064;--green-t:#45D98A;--green-bg:#12301F;--red-bg:#3A1717;
+  --bg:#0D0F12;--card:#15181D;--on-ink:#0D0F12;color-scheme:dark;
+}
+:root[data-theme="dark"] .sheet .bg{background:rgba(0,0,0,.6)}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:var(--body);-webkit-text-size-adjust:100%}
 button{font-family:inherit;cursor:pointer;color:inherit}
@@ -34,21 +40,21 @@ a{color:var(--blue)}
 .slashes i{display:block;width:5px;height:26px}
 .word{display:flex;transform:skewX(-10deg);position:relative;font:900 28px/1 var(--disp)}
 .word .sp{padding:3px 4px 0 0}
-.word .mf{background:var(--blue);color:#fff;padding:3px 7px 0;border-bottom:3px solid var(--red)}
-.word .dot{position:absolute;top:-5px;right:-5px;width:9px;height:9px;border-radius:50%;background:var(--red);border:2px solid #fff}
+.word .mf{background:#0076B6;color:#fff;padding:3px 7px 0;border-bottom:3px solid var(--red)}
+.word .dot{position:absolute;top:-5px;right:-5px;width:9px;height:9px;border-radius:50%;background:var(--red);border:2px solid var(--bg)}
 .date{font:700 17px var(--disp);letter-spacing:1.5px;color:var(--muted);text-transform:uppercase}
 main{flex:1;min-height:0;overflow-y:auto;padding:4px 16px 12px;display:flex;flex-direction:column}
-.tabs{flex:none;display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom);background:#fff}
+.tabs{flex:none;display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom);background:var(--card)}
 .tabs button{height:60px;border:0;background:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--dim);font:700 12px var(--body);letter-spacing:.5px}
 .tabs button.on{color:var(--blue)}
 .title{font:900 34px/1 var(--disp);margin:0;letter-spacing:.5px}
 .row{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .chips{display:flex;gap:6px;flex-wrap:wrap}
-.chip{height:36px;padding:0 13px;border-radius:18px;border:1.5px solid var(--silver);background:#fff;color:var(--ink);font:600 15px var(--body);white-space:nowrap}
-.chip.on{background:var(--ink);border-color:var(--ink);color:#fff}
+.chip{height:36px;padding:0 13px;border-radius:18px;border:1.5px solid var(--silver);background:var(--card);color:var(--ink);font:600 15px var(--body);white-space:nowrap}
+.chip.on{background:var(--ink);border-color:var(--ink);color:var(--on-ink)}
 .chips.sm .chip{height:34px;padding:0 10px;font-size:14px}
 .stack{display:flex;flex-direction:column;gap:8px}
-.card{display:block;width:100%;text-align:left;border:1.5px solid var(--line);border-radius:14px;overflow:hidden;background:#fff;padding:0;font:inherit}
+.card{display:block;width:100%;text-align:left;border:1.5px solid var(--line);border-radius:14px;overflow:hidden;background:var(--card);padding:0;font:inherit}
 .meta{display:flex;justify-content:space-between;gap:8px;padding:8px 14px 0;font:700 13px var(--body);letter-spacing:1px;color:var(--muted);text-transform:uppercase}
 .meta .r{text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .livec{color:var(--red)}
@@ -65,20 +71,20 @@ main{flex:1;min-height:0;overflow-y:auto;padding:4px 16px 12px;display:flex;flex
 .tag{padding:2px 8px;border-radius:6px;font:700 13px var(--body);white-space:nowrap;display:inline-block}
 .tag.bet{border:1.5px solid var(--green);color:var(--green-t)}
 .tag.my{border:1.5px solid var(--blue);color:var(--blue)}
-.tag.won{background:var(--green);color:#fff}
-.tag.lost{background:var(--red);color:#fff}
+.tag.won{background:var(--green);color:var(--on-ink)}
+.tag.lost{background:var(--red);color:var(--on-ink)}
 .tag.push{background:var(--silver);color:var(--ink)}
 .tag.livet{border:1.5px solid var(--red);color:var(--red)}
 .tag.cov{background:var(--green-bg);color:var(--green-t)}
 .tag.ncov{background:var(--red-bg);color:var(--red)}
 .pager{display:flex;align-items:center;justify-content:space-between;margin-top:auto;padding-top:10px;gap:8px}
-.pager button{height:44px;min-width:100px;border-radius:12px;border:1.5px solid var(--silver);background:#fff;font:800 18px var(--disp);letter-spacing:1px}
+.pager button{height:44px;min-width:100px;border-radius:12px;border:1.5px solid var(--silver);background:var(--card);font:800 18px var(--disp);letter-spacing:1px}
 .pager button:disabled{opacity:.3}
 .pager span{font:600 14px var(--body);color:var(--muted)}
-.bigbtn{width:100%;height:54px;border:0;border-radius:14px;background:var(--ink);color:#fff;font:800 21px var(--disp);letter-spacing:1px;display:flex;align-items:center;justify-content:center;gap:10px;flex:none}
+.bigbtn{width:100%;height:54px;border:0;border-radius:14px;background:var(--ink);color:var(--on-ink);font:800 21px var(--disp);letter-spacing:1px;display:flex;align-items:center;justify-content:center;gap:10px;flex:none}
 .bigbtn .plus{color:var(--blue2);font-size:26px;line-height:1}
 .bigbtn.blue{background:var(--blue)}
-.newsbtn{display:flex;align-items:center;justify-content:space-between;margin-top:10px;height:44px;padding:0 14px;border-radius:12px;background:var(--ink);color:#fff;border:0;font:800 20px var(--disp);letter-spacing:1px;width:100%;flex:none}
+.newsbtn{display:flex;align-items:center;justify-content:space-between;margin-top:10px;height:44px;padding:0 14px;border-radius:12px;background:var(--ink);color:var(--on-ink);border:0;font:800 20px var(--disp);letter-spacing:1px;width:100%;flex:none}
 .newsbtn span{color:var(--blue2);font-size:24px}
 .back{display:inline-flex;align-items:center;gap:4px;border:0;background:none;color:var(--blue);font:600 17px var(--body);min-height:44px;padding:0}
 .back b{font-size:26px;line-height:1;font-weight:500}
@@ -89,12 +95,12 @@ main{flex:1;min-height:0;overflow-y:auto;padding:4px 16px 12px;display:flex;flex
 .big{font:800 23px/1.1 var(--disp);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sub{font:500 14px var(--body);color:var(--muted)}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.tile{min-height:64px;border:1.5px solid var(--silver);border-radius:14px;background:#fff;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;padding:8px 14px;gap:2px;text-align:left}
+.tile{min-height:64px;border:1.5px solid var(--silver);border-radius:14px;background:var(--card);display:flex;flex-direction:column;align-items:flex-start;justify-content:center;padding:8px 14px;gap:2px;text-align:left}
 .tile b{font:900 24px/1 var(--disp)}
 .tile small{font:600 13px var(--body);color:var(--muted)}
 .tile small.lv{color:var(--red)}
 .tile.dash{border-style:dashed;background:var(--soft);align-items:center;color:var(--blue);font:800 22px var(--disp)}
-input,select,textarea{font:500 17px var(--body);border:1.5px solid var(--silver);border-radius:12px;padding:0 12px;width:100%;background:#fff;color:var(--ink)}
+input,select,textarea{font:500 17px var(--body);border:1.5px solid var(--silver);border-radius:12px;padding:0 12px;width:100%;background:var(--card);color:var(--ink)}
 input,select{height:48px}
 textarea{padding:10px 12px;min-height:110px;font-size:14px}
 .seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;border-bottom:1px solid var(--line);flex:none}
@@ -122,7 +128,7 @@ textarea{padding:10px 12px;min-height:110px;font-size:14px}
 .stat b{display:block;font:900 30px/1.1 var(--disp)}
 .pos{color:var(--green-t)}.neg{color:var(--red)}
 .datenav{display:grid;grid-template-columns:52px 1fr 52px;align-items:center;gap:8px;flex:none}
-.datenav button{height:40px;border-radius:12px;border:1.5px solid var(--silver);background:#fff;font:800 22px var(--disp)}
+.datenav button{height:40px;border-radius:12px;border:1.5px solid var(--silver);background:var(--card);font:800 22px var(--disp)}
 .datenav span{text-align:center;font:800 21px var(--disp);letter-spacing:1px;text-transform:uppercase}
 .grow{flex:1;min-height:0}
 .gr{display:grid;grid-template-columns:62px 1fr auto;align-items:center;gap:8px;padding:6px 2px;border:0;border-bottom:1px solid var(--line);width:100%;background:none;text-align:left;font:inherit}
@@ -140,24 +146,24 @@ textarea{padding:10px 12px;min-height:110px;font-size:14px}
 .news .hl{font:600 18px/1.3 var(--body);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .k-inj{color:var(--red)}.k-bet{color:var(--green-t)}
 .side2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.side2 button{height:52px;border-radius:12px;border:1.5px solid var(--silver);background:#fff;font:800 21px var(--disp)}
-.side2 button.on{background:var(--ink);border-color:var(--ink);color:#fff}
+.side2 button{height:52px;border-radius:12px;border:1.5px solid var(--silver);background:var(--card);font:800 21px var(--disp)}
+.side2 button.on{background:var(--ink);border-color:var(--ink);color:var(--on-ink)}
 .field{display:flex;flex-direction:column;gap:6px}
 .numrow{display:grid;grid-template-columns:52px 1fr;gap:8px}
-.numrow button{height:48px;border-radius:12px;border:1.5px solid var(--silver);background:#fff;font:800 24px var(--disp)}
+.numrow button{height:48px;border-radius:12px;border:1.5px solid var(--silver);background:var(--card);font:800 24px var(--disp)}
 .sheet{position:fixed;inset:0;z-index:20;display:flex;flex-direction:column;justify-content:flex-end}
 .sheet[hidden]{display:none}
 .sheet .bg{position:absolute;inset:0;background:rgba(11,11,12,.45);border:0;width:100%}
-.sheet .body{position:relative;background:#fff;border-radius:20px 20px 0 0;max-height:88vh;overflow-y:auto;padding:18px 16px calc(18px + env(safe-area-inset-bottom));max-width:560px;width:100%;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+.sheet .body{position:relative;background:var(--card);border-radius:20px 20px 0 0;max-height:88vh;overflow-y:auto;padding:18px 16px calc(18px + env(safe-area-inset-bottom));max-width:560px;width:100%;margin:0 auto;display:flex;flex-direction:column;gap:12px}
 .sheet .grab{width:44px;height:5px;border-radius:3px;background:var(--line);align-self:center}
 .sheet img.hero{width:100%;border-radius:12px;max-height:200px;object-fit:cover}
 .sheet h2{font:800 26px/1.15 var(--disp);margin:0}
 .sheet p{font:400 18px/1.5 var(--body);margin:0}
 .btnrow{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-.btnrow button{height:48px;border-radius:12px;border:1.5px solid var(--silver);background:#fff;font:800 19px var(--disp)}
+.btnrow button{height:48px;border-radius:12px;border:1.5px solid var(--silver);background:var(--card);font:800 19px var(--disp)}
 .btnrow button.w{border-color:var(--green);color:var(--green-t)}
 .btnrow button.l{border-color:var(--red);color:var(--red)}
-.ghost{height:48px;border-radius:12px;border:1.5px solid var(--silver);background:#fff;font:800 19px var(--disp);width:100%}
+.ghost{height:48px;border-radius:12px;border:1.5px solid var(--silver);background:var(--card);font:800 19px var(--disp);width:100%}
 .ghost.danger{color:var(--red);border-color:var(--red)}
 .ls{display:grid;font:600 15px var(--body);border:1.5px solid var(--line);border-radius:12px;overflow:hidden}
 .ls>div{display:grid;padding:8px 12px;border-top:1px solid var(--line);text-align:center}
@@ -212,7 +218,7 @@ const TEAM_LGS = LEAGUES.filter(l => l.type === 'team');
 const COLLEGE_LGS = LEAGUES.filter(l => l.college);
 const BOOKS = ['DraftKings','FanDuel','Bet365','BetMGM','Fanatics','Hard Rock','theScore','BetRivers','betPARX','Caesars','ESPN BET'];
 const BOOK_MAP = {draftkings:'DraftKings', fanduel:'FanDuel', betmgm:'BetMGM', caesars:'Caesars', espnbet:'ESPN BET', bet365:'Bet365', fanatics:'Fanatics', hardrock:'Hard Rock', hardrockbet:'Hard Rock', betrivers:'BetRivers', thescore:'theScore', betparx:'betPARX'};
-const BUILD = '2026-10-15 v8';
+const BUILD = '2026-10-15 v10';
 /* The Call Sheet lives on the same site (jibboo72.github.io), so its saved
    data and its published odds file are both readable from here. */
 const CS_KEY = 'nfl-call-sheet-v3';
@@ -249,9 +255,11 @@ const S = {
   bets: store.get('bets', []),
   unit: store.get('unit', 14),
   lastBook: store.get('lastBook', 'DraftKings'),
-  showCS: store.get('showCS', true)
+  showCS: store.get('showCS', true),
+  theme: store.get('theme', 'light'),
+  mfl: store.get('mfl', {host: 'www45.myfantasyleague.com', year: '2026', league: '30258', franchise: '', apikey: ''})
 };
-function save(){ store.set('favs', S.favs); store.set('bets', S.bets); store.set('unit', S.unit); store.set('lastBook', S.lastBook); store.set('showCS', S.showCS); }
+function save(){ store.set('favs', S.favs); store.set('bets', S.bets); store.set('unit', S.unit); store.set('lastBook', S.lastBook); store.set('showCS', S.showCS); store.set('theme', S.theme); store.set('mfl', S.mfl); }
 
 /* Call Sheet bets, read-only. Paper bets are skipped, same as the Call
    Sheet's own bankroll. Stakes there are dollars, so they're converted to
@@ -748,7 +756,7 @@ function propsTab(d, ev, p, room){
     gamePicks.forEach(pk => { by[pk.card] = (by[pk.card] || 0) + 1; });
     return `<div style="font:700 14px var(--body);color:var(--green-t)">★ ${gamePicks.length} Call Sheet pick${gamePicks.length > 1 ? 's' : ''} here · ${esc(Object.entries(by).map(([c, n]) => c + (n > 1 ? ' ' + n : '')).join(' · '))}</div>`;
   })() : '';
-  const per = perPage(room, gamePicks.length ? 165 : 140, 64, 2);
+  const per = perPage(room + 150, gamePicks.length ? 165 : 140, 64, 2);
   const pg = slicePage(rows, per, p.page);
   const label = MARKETS[mkt] || mkt;
   const btn = (r, side) => {
@@ -774,8 +782,241 @@ function propsTab(d, ev, p, room){
     <div class="sub">Best price across books · from your Call Sheet pull ${esc(ago(d.csPulled))}</div>`;
 }
 
+/* ---------- NHL props from your Scoresheet board ----------
+   Same rules as the Scoresheet's Tonight page: "likely" plays are the ones
+   it marks likely; "edge" is EV of 5% or more at max_price or shorter;
+   30%+ EV is flagged as too good to trust without a check. */
+const SS_BOARD = ['/scoresheet/data/board.json', 'https://raw.githubusercontent.com/Jibboo72/scoresheet/main/docs/data/board.json'];
+const NHL_ALIAS = {TB:'TBL', NJ:'NJD', SJ:'SJS', LA:'LAK', UTAH:'UTA', UTH:'UTA', MON:'MTL', WAS:'WSH', CLB:'CBJ', NAS:'NSH', VEG:'VGK'};
+const nhlAbbr = a => NHL_ALIAS[String(a || '').toUpperCase()] || String(a || '').toUpperCase();
+const SS_BOOKS = {'Hard Rock Bet':'Hard Rock', 'theScore Bet':'theScore', 'ESPN BET':'ESPN BET'};
+async function ssBoard(){
+  let last;
+  for (const u of SS_BOARD){ try { return await getJSON(u, 10 * 60000); } catch (e){ last = e; } }
+  throw last || new Error('Scoresheet board unavailable');
+}
+function ssGameFor(board, ev){
+  const h = nhlAbbr(ev.home.abbr), a = nhlAbbr(ev.away.abbr), t = new Date(ev.date).getTime();
+  return ((board && board.games) || []).find(g => nhlAbbr(g.home) === h && nhlAbbr(g.away) === a && Math.abs(new Date(g.start).getTime() - t) < 864e5) || null;
+}
+function nhlPropsTab(d, ev, p, room){
+  if (d.ssErr) return `<div class="empty">Couldn't reach your Scoresheet board.<br><small>${esc(d.ssErr)}</small></div>`;
+  const B = d.ss, g = d.ssGame;
+  if (!B || !g) return '<div class="empty">This game isn\'t on your Scoresheet board. The board only covers today\'s slate.</div>';
+  const mkt = ['goal', 'assist', 'sog'].includes(p.mkt) ? p.mkt : 'goal';
+  const players = (B.players || []).filter(x => String(x.game_id) === String(g.id));
+  const max = B.max_price || 750;
+  const kind = m => !m ? '' : m.likely ? 'likely' : (m.ev !== null && m.ev !== undefined && m.ev >= 0.30) ? 'flag' : (m.ev >= 0.05 && m.price <= max) ? 'edge' : '';
+  const picks = players.flatMap(x => ['goal', 'assist'].map(k => ({x, k, kd: kind(x[k])}))).filter(r => r.kd);
+  const cnt = k => picks.filter(r => r.kd === k).length;
+  let rows;
+  if (mkt === 'sog') rows = players.slice().sort((a, b) => (b.sog || 0) - (a.sog || 0)).map(x => ({x}));
+  else {
+    const rank = {likely: 0, edge: 1, flag: 3, '': 3};
+    rows = players.filter(x => x[mkt]).map(x => ({x, m: x[mkt], kd: kind(x[mkt])}))
+      .sort((a, b) => rank[a.kd] - rank[b.kd] || (a.kd === 'likely' || a.kd === 'edge' ? (b.m.ev || 0) - (a.m.ev || 0) : (b.m.p || 0) - (a.m.p || 0)));
+  }
+  const lastName = n => String(n || '?').split(' ').slice(-1)[0];
+  const goalies = B.goalies ? `G: ${lastName(B.goalies[g.away])} ${g.away} · ${lastName(B.goalies[g.home])} ${g.home} (projected)` : '';
+  const summary = picks.length
+    ? `<div style="font:700 14px var(--body);color:var(--green-t)">★ ${[cnt('likely') ? cnt('likely') + ' likely' : '', cnt('edge') ? cnt('edge') + ' edge' : '', cnt('flag') ? cnt('flag') + ' to check' : ''].filter(Boolean).join(' · ')} from your Scoresheet</div>`
+    : '<div class="sub">No Scoresheet plays in this game right now. Passing is a fine bet.</div>';
+  const per = perPage(room + 150, 190, 64, 2);
+  const pg = slicePage(rows, per, p.page);
+  const pct = v => v === null || v === undefined ? '—' : Math.round(v * 100) + '%';
+  const tagHtml = r => {
+    if (r.kd === 'likely') return `<span style="font:700 13px var(--body);color:var(--green-t)">★ LIKELY · model ${pct(r.m.p)} · fair ${fmtOdds(r.m.fair)}</span>`;
+    if (r.kd === 'edge') return `<span style="font:700 13px var(--body);color:var(--green-t)">★ EDGE +${Math.round(r.m.ev * 100)}% · model ${pct(r.m.p)}</span>`;
+    if (r.kd === 'flag') return `<span style="font:700 13px var(--body);color:var(--red)">⚠ CHECK +${Math.round(r.m.ev * 100)}% · confirm lineup</span>`;
+    return `<span class="sub">${esc(r.x.team)} · model ${pct(r.m.p)} · fair ${fmtOdds(r.m.fair)}</span>`;
+  };
+  const priceBtn = r => {
+    if (!r.m || r.m.price === null || r.m.price === undefined) return '<span class="sub">no price</span>';
+    const book = SS_BOOKS[r.m.book] || r.m.book || '';
+    const desc = `${r.x.name} ${mkt === 'goal' ? 'anytime goal' : '1+ assist'}`;
+    return `<button class="chip" style="height:44px;display:flex;flex-direction:column;justify-content:center;line-height:1.1;padding:0 10px" data-h="${h(() => {
+      const f = defaultForm(ev); const o = parseInt(r.m.price, 10);
+      Object.assign(f, {type:'prop', prop: desc, oddsAbs: String(Math.abs(o) || ''), oddsNeg: o < 0, book: BOOKS.includes(book) ? book : f.book});
+      go('addbet', {step:'form', lg: ev.lg, ev, f});
+    })}"><b style="font-size:15px">${fmtOdds(r.m.price)}</b><small style="font:600 11px var(--body);opacity:.75">${esc(book)}</small></button>`;
+  };
+  const rowHtml = r => {
+    if (mkt === 'sog') return `<div class="lrow" style="padding:8px 2px"><span class="main"><span style="font:700 17px var(--body)">${esc(r.x.name)}</span><span class="sub">${esc(r.x.team)} · ${esc(r.x.pos)} · ${esc(r.x.toi)} min TOI</span></span><span class="big" style="font-size:22px">${(+r.x.sog).toFixed(1)} <small style="font:600 12px var(--body);color:var(--muted)">SOG</small></span></div>`;
+    const hi = r.kd === 'likely' || r.kd === 'edge';
+    return `<div class="lrow" style="padding:8px ${hi ? '10px' : '2px'};${hi ? 'background:var(--green-bg);border-radius:12px;border-bottom-color:transparent;margin-bottom:4px' : ''}"><span class="main"><span style="font:700 17px var(--body);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(r.x.name)}</span>${tagHtml(r)}</span>${priceBtn(r)}</div>`;
+  };
+  const opt = (k, l) => `<option value="${k}" ${k === mkt ? 'selected' : ''}>${l}${k !== 'sog' && picks.some(r => r.k === k) ? '  ★' + picks.filter(r => r.k === k).length : ''}</option>`;
+  return `${summary}<div class="row" style="gap:8px"><select id="mktSel" aria-label="Prop market" style="flex:1">${opt('goal', 'Anytime goal')}${opt('assist', '1+ assist')}${opt('sog', 'Shots on goal (projection)')}</select></div>
+    <div>${pg.items.length ? pg.items.map(rowHtml).join('') : '<div class="empty">No players in this market.</div>'}</div>
+    ${pager(pg.page, pg.pages, n => setP({page: n}))}
+    <div class="sub" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(goalies)}${goalies ? ' · ' : ''}board ${esc(ago(B.generated))}</div>`;
+}
+
+/* ---------- MyFantasyLeague ----------
+   MFL's export API: https://<host>/<year>/export?TYPE=...&L=<league>&JSON=1.
+   Tries a normal request first; if the browser blocks it, falls back to
+   MFL's JSONP form (CALLBACK=). Private leagues need the API key MFL shows
+   a logged-in owner. Single-item lists come back as objects, so arr(). */
+const arr = x => Array.isArray(x) ? x : (x ? [x] : []);
+const mflOn = () => !!(S.mfl && S.mfl.league && S.mfl.host);
+let MFL_MODE = '';
+function mflUrl(type, extra, cb){
+  const m = S.mfl;
+  return `https://${m.host}/${m.year}/export?TYPE=${type}&L=${encodeURIComponent(m.league)}${extra || ''}&JSON=1${m.apikey ? '&APIKEY=' + encodeURIComponent(m.apikey) : ''}${cb ? '&CALLBACK=' + cb : ''}`;
+}
+function jsonp(url, cb){
+  return new Promise((res, rej) => {
+    const sc = document.createElement('script');
+    const t = setTimeout(() => { cleanup(); rej(new Error('MFL did not answer')); }, 9000);
+    function cleanup(){ clearTimeout(t); delete window[cb]; sc.remove(); }
+    window[cb] = d => { cleanup(); res(d); };
+    sc.onerror = () => { cleanup(); rej(new Error('MFL blocked the request')); };
+    sc.src = url;
+    document.head.appendChild(sc);
+  });
+}
+async function mfl(type, extra, ttl){
+  const key = 'mfl|' + type + '|' + (extra || '') + '|' + S.mfl.league + '|' + S.mfl.year;
+  const c = mem.get(key);
+  if (c && Date.now() - c.t < (ttl ?? 30000)) return c.v;
+  let v, err;
+  if (MFL_MODE !== 'jsonp'){
+    try { const r = await fetch(mflUrl(type, extra)); if (!r.ok) throw new Error('MFL error ' + r.status); v = await r.json(); MFL_MODE = 'direct'; }
+    catch (e){ err = e; }
+  }
+  if (v === undefined){
+    try { const cb = 'mflcb' + Date.now() + Math.floor(Math.random() * 1e4); v = await jsonp(mflUrl(type, extra, cb), cb); MFL_MODE = 'jsonp'; }
+    catch (e){ throw new Error((err ? 'Direct: ' + err.message + ' · ' : '') + 'JSONP: ' + e.message); }
+  }
+  if (v && v.error) throw new Error('MFL: ' + (v.error.$t || v.error || 'error'));
+  mem.set(key, {t: Date.now(), v});
+  return v;
+}
+async function mflPlayers(ids){
+  const need = ids.filter(id => !PLAYERS[id]);
+  if (need.length){
+    for (let i = 0; i < need.length; i += 60){
+      const d = await mfl('players', '&PLAYERS=' + need.slice(i, i + 60).join(','), 12 * 3600e3);
+      arr(d && d.players && d.players.player).forEach(pl => { PLAYERS[pl.id] = pl; });
+    }
+  }
+  return PLAYERS;
+}
+const PLAYERS = {};
+function mflName(pl){ if (!pl) return 'Player'; const n = String(pl.name || ''); const i = n.indexOf(','); return i > 0 ? n.slice(i + 1).trim() + ' ' + n.slice(0, i).trim() : n; }
+const fmtPts = v => { const n = parseFloat(v); return isNaN(n) ? '0.0' : n.toFixed(1); };
+async function mflSnapshot(){
+  const [lg, live] = await Promise.all([mfl('league', '', 6 * 3600e3), mfl('liveScoring', '&DETAILS=1', 30000)]);
+  const fr = {};
+  arr(lg && lg.league && lg.league.franchises && lg.league.franchises.franchise).forEach(f => { fr[f.id] = f; });
+  const ls = (live && live.liveScoring) || {};
+  const matchups = arr(ls.matchup).map(m => arr(m.franchise));
+  return {name: lg && lg.league && lg.league.name, fr, week: ls.week, matchups};
+}
+function myMatchup(snap){
+  const me = S.mfl.franchise;
+  const m = snap.matchups.find(pair => pair.some(f => f.id === me));
+  if (!m) return null;
+  return {me: m.find(f => f.id === me), opp: m.find(f => f.id !== me)};
+}
+function fantasyCard(snap){
+  const mm = myMatchup(snap);
+  if (!mm || !mm.opp) return '';
+  const nm = id => (snap.fr[id] && snap.fr[id].name) || 'Team ' + id;
+  const a = parseFloat(mm.me.score) || 0, b = parseFloat(mm.opp.score) || 0;
+  const left = (+mm.me.playersYetToPlay || 0) + (+mm.me.playersCurrentlyPlaying || 0);
+  const row = (f, mine) => `<div class="tm"><span class="nm" style="${mine ? 'color:var(--blue)' : ''}">${esc(nm(f.id))}</span><span class="sc ${!mine && b < a ? 'lose' : mine && a < b ? 'lose' : ''}">${fmtPts(f.score)}</span></div>`;
+  return `<button class="card" data-h="${h(() => go('fantasy', {tab: 'mine'}))}"><div class="meta"><span>FANTASY · WK ${esc(snap.week || '')}</span><span class="r">${left ? (mm.me.playersCurrentlyPlaying > 0 ? '<span class="livec">● ' + esc(mm.me.playersCurrentlyPlaying) + ' playing</span>' : esc(left) + ' to play') : 'Done'}</span></div>${row(mm.me, true)}${row(mm.opp, false)}<div class="foot"><span class="ln">${a >= b ? 'Up' : 'Down'} ${Math.abs(a - b).toFixed(1)} · ${esc(snap.name || 'MFL')}</span><span class="tag ${a >= b ? 'bet' : 'my'}">MY TEAM</span></div></button>`;
+}
+const FANTASY_VIEW = {
+  async load(p){
+    if (!mflOn() || !S.mfl.franchise) return {setup: true};
+    const snap = await mflSnapshot();
+    const tab2 = p.tab || 'mine';
+    if (tab2 === 'mine'){
+      const mm = myMatchup(snap);
+      if (mm){
+        const ids = [mm.me, mm.opp].filter(Boolean).flatMap(f => arr(f.players && f.players.player).map(x => x.id));
+        await mflPlayers(ids).catch(() => {});
+      }
+    }
+    if (tab2 === 'stand') snap.stand = arr(((await mfl('leagueStandings', '', 600000)).leagueStandings || {}).franchise);
+    return snap;
+  },
+  build(p, d, avail){
+    if (d.setup) return `${backBtn('Back')}<h1 class="title">FANTASY</h1><div class="empty">Pick your team to connect your MyFantasyLeague league.<br><br><button class="chip on" data-h="${h(() => go('mflsetup'))}">Set up MFL ›</button></div>`;
+    const t = p.tab || 'mine';
+    const nm = id => (d.fr[id] && d.fr[id].name) || 'Team ' + id;
+    const seg = (k, l) => `<button class="${t === k ? 'on' : ''}" data-h="${h(() => setP({tab: k, page: 0, side: 'me'}))}">${l}</button>`;
+    let html = `<div class="row"><button class="back" data-h="${h(back)}"><b>‹</b><span class="title" style="color:var(--ink);font-size:30px;margin-left:2px">FANTASY</span></button><span class="lbl">WEEK ${esc(d.week || '')}</span></div>
+      <div class="seg" style="margin-top:6px">${seg('mine', 'MATCHUP')}${seg('all', 'ALL GAMES')}${seg('stand', 'STANDINGS')}</div>`;
+    if (t === 'mine'){
+      const mm = myMatchup(d);
+      if (!mm) return html + '<div class="empty">No matchup for your team this week.</div>';
+      const side = p.side === 'opp' && mm.opp ? mm.opp : mm.me;
+      const players = arr(side.players && side.players.player).filter(x => x.status === 'starter').sort((a, b) => (parseFloat(b.score) || 0) - (parseFloat(a.score) || 0));
+      const per = perPage(avail, 270, 56, 3);
+      const pg = slicePage(players, per, p.page);
+      const sideChip = (k, f) => f ? `<button class="chip ${((p.side || 'me') === k) ? 'on' : ''}" data-h="${h(() => setP({side: k, page: 0}))}">${esc(nm(f.id))}</button>` : '';
+      const a = parseFloat(mm.me.score) || 0, b = mm.opp ? parseFloat(mm.opp.score) || 0 : 0;
+      const prow = x => {
+        const pl = PLAYERS[x.id];
+        const secs = +x.gameSecondsRemaining || 0;
+        const st = secs >= 3600 ? 'Yet to play' : secs > 0 ? `<span class="livec">● ${Math.ceil(secs / 60)} min left</span>` : 'Final';
+        return `<div class="lrow" style="padding:8px 2px"><span class="main"><span style="font:700 17px var(--body)">${esc(mflName(pl))}</span><span class="sub">${pl ? esc(pl.position + ' · ' + pl.team) + ' · ' : ''}${st}</span></span><span class="big" style="font-size:22px">${fmtPts(x.score)}</span></div>`;
+      };
+      return html + `<div class="head" style="grid-template-columns:1fr auto 1fr;border-top:0;padding:10px 0">
+          <div class="side"><span class="tn" style="font-size:18px;color:var(--blue)">${esc(nm(mm.me.id))}</span></div>
+          <div class="mid"><div class="scr" style="font-size:38px">${fmtPts(a)}–${fmtPts(b)}</div></div>
+          <div class="side"><span class="tn" style="font-size:18px">${esc(mm.opp ? nm(mm.opp.id) : 'BYE')}</span></div></div>
+        <div class="chips sm" style="margin-top:8px">${sideChip('me', mm.me)}${sideChip('opp', mm.opp)}</div>
+        <div style="margin-top:4px">${pg.items.length ? pg.items.map(prow).join('') : '<div class="empty">Starters post once lineups lock.</div>'}</div>
+        ${pager(pg.page, pg.pages, n => setP({page: n}))}`;
+    }
+    if (t === 'all'){
+      const per = perPage(avail, 150, 70, 3);
+      const pg = slicePage(d.matchups, per, p.page);
+      const row = pair => `<div class="lrow" style="flex-direction:column;align-items:stretch;gap:2px;padding:8px 2px">${pair.map(f => `<div class="row"><span style="font:800 19px var(--disp);${f.id === S.mfl.franchise ? 'color:var(--blue)' : ''}">${esc(nm(f.id))}</span><span style="font:900 21px var(--disp)">${fmtPts(f.score)}</span></div>`).join('')}</div>`;
+      return html + `<div style="margin-top:6px">${pg.items.map(row).join('')}</div>${pager(pg.page, pg.pages, n => setP({page: n}))}`;
+    }
+    const rows = (d.stand || []).slice();
+    const per = perPage(avail, 150, 44, 4);
+    const pg = slicePage(rows, per, p.page);
+    const rec = f => [f.h2hw, f.h2hl].concat(+f.h2ht ? [f.h2ht] : []).filter(x => x !== undefined).join('-');
+    return html + `<div style="margin-top:6px">${pg.items.map((f, i) => `<div class="lb" style="grid-template-columns:30px 1fr auto auto"><span class="p">${pg.page * per + i + 1}</span><span style="font:800 19px var(--disp);${f.id === S.mfl.franchise ? 'color:var(--blue)' : ''};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(nm(f.id))}</span><span style="font:700 16px var(--body)">${esc(rec(f))}</span><span class="sub" style="min-width:64px;text-align:right">${esc(f.pf ? fmtPts(f.pf) + ' PF' : '')}</span></div>`).join('') || '<div class="empty">Standings not available.</div>'}</div>${pager(pg.page, pg.pages, n => setP({page: n}))}`;
+  }
+};
+const MFLSETUP_VIEW = {
+  async load(p){
+    if (!p.test) return null;
+    try { const lg = await mfl('league', '', 0); return {ok: true, lg, mode: MFL_MODE}; }
+    catch (e){ return {ok: false, err: e.message}; }
+  },
+  build(p, d){
+    const m = S.mfl;
+    const fr = d && d.ok ? arr(d.lg.league && d.lg.league.franchises && d.lg.league.franchises.franchise) : [];
+    const field = (id, l, v, ph) => `<div class="field"><label class="lbl" for="${id}">${l}</label><input id="${id}" value="${esc(v)}" placeholder="${esc(ph || '')}" autocomplete="off"></div>`;
+    let result = '';
+    if (d && d.ok) result = `<div class="sub" style="color:var(--green-t);font-weight:700">Connected to ${esc(d.lg.league && d.lg.league.name || 'your league')} (${esc(d.mode)}). Pick your team:</div>
+      <div class="chips" style="margin-top:8px">${fr.map(f => `<button class="chip ${m.franchise === f.id ? 'on' : ''}" data-h="${h(() => { S.mfl.franchise = f.id; save(); tab('tonight'); })}">${esc(f.name)}</button>`).join('')}</div>`;
+    else if (d && !d.ok) result = `<div class="sub" style="color:var(--red);font-weight:700">Couldn't connect.</div><div class="sub">${esc(d.err)}</div><div class="sub" style="margin-top:6px">If your league is private, add the API key MFL shows you when you're logged in. If MFL is blocking browser requests, I can set up a small GitHub job that pulls your league into a file instead.</div>`;
+    const read = () => { ['host', 'year', 'league', 'apikey'].forEach(k => { const el = document.getElementById('mfl_' + k); if (el) S.mfl[k] = el.value.trim(); }); save(); };
+    return `${backBtn('Back')}<h1 class="title">MYFANTASYLEAGUE</h1>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-top:12px">
+      ${field('mfl_host', 'Server', m.host, 'www45.myfantasyleague.com')}
+      <div class="row" style="gap:10px">${field('mfl_year', 'Season', m.year, '2026')}${field('mfl_league', 'League ID', m.league, '30258')}</div>
+      ${field('mfl_apikey', 'API key (only if private)', m.apikey, 'optional')}
+      <button class="bigbtn blue" data-h="${h(() => { read(); mem.clear(); MFL_MODE = ''; setP({test: Date.now()}); })}">TEST &amp; LOAD TEAMS</button>
+      ${result}
+      ${m.franchise ? `<button class="ghost danger" data-h="${h(() => { S.mfl.franchise = ''; save(); render(); })}">DISCONNECT MY TEAM</button>` : ''}
+      </div>`;
+  }
+};
+
 /* ================= VIEWS ================= */
 const VIEWS = {};
+VIEWS.fantasy = FANTASY_VIEW;
+VIEWS.mflsetup = MFLSETUP_VIEW;
 
 /* ---------- TONIGHT ---------- */
 VIEWS.tonight = {
@@ -798,22 +1039,27 @@ VIEWS.tonight = {
     learnLogos(evs);
     const seen = new Set();
     const mine = evs.filter(e => (isFav(e) || betsFor(e).length) && !seen.has(e.id) && seen.add(e.id)).sort(sortEvents);
-    return {evs: mine, fails};
+    let fantasy = null;
+    if (mflOn() && S.mfl.franchise){
+      try { const snap = await mflSnapshot(); if (myMatchup(snap)) fantasy = snap; } catch (e){}
+    }
+    return {evs: mine, fails, fantasy};
   },
   build(p, d, avail){
     const f = p.filter || 'all';
     let list = d.evs;
     if (f === 'my') list = list.filter(isFav);
     if (f === 'bet') list = list.filter(e => betsFor(e).length);
+    if (d.fantasy && f !== 'bet') list = [{fantasy: d.fantasy}].concat(list);
     const per = perPage(avail, 110, 128, 1);
     const pg = slicePage(list, per, p.page);
     const chip = (lbl, k) => `<button class="chip ${f === k ? 'on' : ''}" data-h="${h(() => setP({filter: k, page: 0}))}">${lbl}</button>`;
-    const empty = d.evs.length
+    const empty = list.length || d.evs.length
       ? '<div class="empty">Nothing in this filter tonight.</div>'
       : `<div class="empty">No games tonight for your teams.<br>Add a bet or browse <button class="chip" data-h="${h(() => tab('sports'))}">Sports</button></div>`;
     return `<div class="row" style="margin-top:2px;flex-wrap:wrap"><h1 class="title">TONIGHT</h1><div class="chips sm">${chip('All','all')}${chip('My Teams','my')}${chip('Bet On','bet')}</div></div>
       ${d.fails ? '<div class="sub" style="margin-top:6px">Some leagues didn\'t load. Pull up again in a moment.</div>' : ''}
-      <div class="stack" style="margin-top:12px">${pg.items.length ? pg.items.map(gameCard).join('') : empty}</div>
+      <div class="stack" style="margin-top:12px">${pg.items.length ? pg.items.map(x => x.fantasy ? fantasyCard(x.fantasy) : gameCard(x)).join('') : empty}</div>
       ${pager(pg.page, pg.pages, n => setP({page: n}))}`;
   }
 };
@@ -833,6 +1079,10 @@ VIEWS.game = {
     if ((p.lg === 'nfl' || p.lg === 'cfb') && (!p.tab || p.tab === 'odds' || p.tab === 'model')){
       try { const mf = await modelFile(p.lg); out.model = modelFor(mf, ev); out.ats = atsRecord(mf, p.lg); }
       catch (e){ out.modelErr = e.message; }
+    }
+    if (p.lg === 'nhl' && p.tab === 'props'){
+      try { const bd = await ssBoard(); out.ss = bd; out.ssGame = ssGameFor(bd, ev); }
+      catch (e){ out.ssErr = e.message; }
     }
     if (p.lg === 'nfl' && p.tab === 'props'){
       try { const od = await csOdds(); out.csGame = csGameFor(od, ev); out.csPulled = od.pulled; }
@@ -854,23 +1104,26 @@ VIEWS.game = {
     const segBtn = (k, l) => `<button class="${t === k ? 'on' : ''}" data-h="${h(() => setP({tab: k, page: 0}))}">${l}</button>`;
     const mybets = betsFor(ev).map(b => {
       let st;
-      if (b.cs) return `<button class="mybet" style="background:#fff;width:100%;text-align:left;font:inherit" data-h="${h(() => csSheet(b))}"><span style="display:flex;flex-direction:column;gap:3px;min-width:0"><span class="lbl" style="color:var(--green-t)">MY BET · CALL SHEET</span><span class="big">${esc(b.pick)} ${b.odds !== null ? fmtOdds(b.odds) : ''}</span><span class="sub">${b.units}u · ${money(b.stake)}</span></span>${b.status !== 'open' ? `<span class="tag ${b.status}">${b.status.toUpperCase()} ${fmtU(profit(b))}</span>` : '<span class="tag my">OPEN</span>'}</button>`;
+      if (b.cs) return `<button class="mybet" style="background:var(--card);width:100%;text-align:left;font:inherit" data-h="${h(() => csSheet(b))}"><span style="display:flex;flex-direction:column;gap:3px;min-width:0"><span class="lbl" style="color:var(--green-t)">MY BET · CALL SHEET</span><span class="big">${esc(b.pick)} ${b.odds !== null ? fmtOdds(b.odds) : ''}</span><span class="sub">${b.units}u · ${money(b.stake)}</span></span>${b.status !== 'open' ? `<span class="tag ${b.status}">${b.status.toUpperCase()} ${fmtU(profit(b))}</span>` : '<span class="tag my">OPEN</span>'}</button>`;
       if (b.status !== 'open') st = `<span class="tag ${b.status}">${b.status.toUpperCase()} ${fmtU(profit(b))}</span>`;
       else if (ev.state === 'in' && b.type !== 'prop'){ const r = evalBet(b, ev); st = r === 'won' ? '<span class="tag cov">COVERING</span>' : r === 'lost' ? '<span class="tag ncov">NOT COVERING</span>' : r === 'push' ? '<span class="tag push">ON THE NUMBER</span>' : '<span class="tag livet">LIVE</span>'; }
       else st = '<span class="tag my">OPEN</span>';
-      return `<button class="mybet" style="background:#fff;width:100%;text-align:left;font:inherit" data-h="${h(() => betSheet(b))}"><span style="display:flex;flex-direction:column;gap:3px;min-width:0"><span class="lbl" style="color:var(--green-t)">MY BET</span><span class="big">${esc(b.pick)} ${fmtOdds(b.odds)}</span><span class="sub">${b.units}u · ${money(b.units * S.unit)} to win ${money(winUnits(b) * S.unit)} · ${esc(b.book)}</span></span>${st}</button>`;
+      return `<button class="mybet" style="background:var(--card);width:100%;text-align:left;font:inherit" data-h="${h(() => betSheet(b))}"><span style="display:flex;flex-direction:column;gap:3px;min-width:0"><span class="lbl" style="color:var(--green-t)">MY BET</span><span class="big">${esc(b.pick)} ${fmtOdds(b.odds)}</span><span class="sub">${b.units}u · ${money(b.units * S.unit)} to win ${money(winUnits(b) * S.unit)} · ${esc(b.book)}</span></span>${st}</button>`;
     });
     const used = 300 + mybets.length * 92;
     let body = '';
     if (t === 'odds') body = oddsTab(s, ev, d);
-    if (t === 'props') body = propsTab(d, ev, p, avail - used + 60);
+    if (t === 'props') body = ev.lg === 'nhl' ? nhlPropsTab(d, ev, p, avail - used + 60) : propsTab(d, ev, p, avail - used + 60);
     if (t === 'model') body = modelBlock(d, ev) || '<div class="empty">No power rating for this game.</div>';
     if (t === 'box') body = boxTab(s, ev, comp, p, avail - used);
     if (t === 'plays') body = playsTab(s, ev, p, avail - used);
     if (t === 'news') body = gameNewsTab(s, ev, p, avail - used);
-    return `<div class="row">${R.stack.length > 1 ? `<button class="back" data-h="${h(back)}"><b>‹</b>Back</button>` : '<span></span>'}<span class="lbl">${esc(LG[ev.lg].name)}</span></div>
-      <div class="head">${side(ev.away)}${mid}${side(ev.home)}</div>
-      <div class="seg">${segBtn('odds','ODDS')}${ev.lg === 'nfl' ? segBtn('props','PROPS') : ''}${ev.lg === 'nfl' || ev.lg === 'cfb' ? segBtn('model','MODEL') : ''}${segBtn('box','BOX')}${segBtn('plays','PLAYS')}${segBtn('news','NEWS')}</div>
+    const compact = t === 'props' || t === 'model';
+    return `${compact ? '' : `<div class="row">${R.stack.length > 1 ? `<button class="back" data-h="${h(back)}"><b>‹</b>Back</button>` : '<span></span>'}<span class="lbl">${esc(LG[ev.lg].name)}</span></div>`}
+      ${compact
+        ? `<div class="row" style="padding:4px 0 6px;border-bottom:3px solid var(--ink);flex:none"><button class="back" data-h="${h(back)}" aria-label="Back"><b>‹</b><span class="big" style="font-size:24px;color:var(--ink)">${esc(ev.away.abbr || ev.away.short)}${ev.state === 'pre' ? '' : ' ' + esc(ev.away.score)} @ ${esc(ev.home.abbr || ev.home.short)}${ev.state === 'pre' ? '' : ' ' + esc(ev.home.score)}</span></button><span class="${ev.state === 'in' ? 'livec' : 'sub'}" style="font-weight:700">${ev.state === 'pre' ? esc(tm(ev.date)) : (ev.state === 'in' ? '● ' : '') + esc(ev.detail)}</span></div>`
+        : `<div class="head">${side(ev.away)}${mid}${side(ev.home)}</div>`}
+      <div class="seg">${segBtn('odds','ODDS')}${ev.lg === 'nfl' || ev.lg === 'nhl' ? segBtn('props','PROPS') : ''}${ev.lg === 'nfl' || ev.lg === 'cfb' ? segBtn('model','MODEL') : ''}${segBtn('box','BOX')}${segBtn('plays','PLAYS')}${segBtn('news','NEWS')}</div>
       <div style="display:flex;flex-direction:column;gap:14px;margin-top:14px;flex:1">${body}</div>
       ${mybets.length ? `<div class="stack" style="margin-top:12px">${mybets.join('')}</div>` : ''}
       ${t === 'props' ? '' : `<button class="ghost" style="margin-top:12px;flex:none" data-h="${h(() => go('addbet', {step:'form', lg: ev.lg, ev, f: defaultForm(ev)}))}">+ BET THIS GAME</button>`}`;
@@ -1076,6 +1329,7 @@ VIEWS.sports = {
     };
     return `<div class="row" style="margin-top:6px"><h1 class="title">SPORTS</h1></div>
       <div class="grid2" style="margin-top:14px">${LEAGUES.map(tile).join('')}
+      <button class="tile" data-h="${h(() => go('fantasy', {tab: 'mine'}))}"><b>FANTASY</b><small>${S.mfl && S.mfl.franchise ? 'MyFantasyLeague' : 'Connect MFL'}</small></button>
       <button class="tile dash" data-h="${h(() => go('myteams'))}">MY TEAMS ›</button></div>
       <button class="ghost" style="margin-top:12px;flex:none" data-h="${h(() => go('settings'))}">SETTINGS</button>`;
   }
@@ -1531,17 +1785,31 @@ function addTeam(t, lgKey){
 VIEWS.settings = {
   build(){
     return `${backBtn('Back')}<h1 class="title">SETTINGS</h1>
+            <div class="field" style="margin-top:12px"><span class="lbl">Appearance</span><div class="chips">${[['light','Light'],['dark','Dark'],['auto','Match phone']].map(([k, l]) => `<button class="chip ${S.theme === k ? 'on' : ''}" data-h="${h(() => { S.theme = k; save(); applyTheme(); render(true); })}">${l}</button>`).join('')}</div></div>
+      <button class="ghost" style="margin-top:14px" data-h="${h(() => go('mflsetup'))}">FANTASY LEAGUE (MFL) ›</button>
       <div class="field" style="margin-top:14px"><label class="lbl" for="unitIn">Unit size ($)</label><div class="row"><input id="unitIn" inputmode="decimal" value="${esc(S.unit)}"><button class="chip on" style="height:48px" data-h="${h(() => { const v = parseFloat($('#unitIn').value); if (v > 0){ S.unit = v; save(); back(); } })}">SAVE</button></div></div>
       <div class="field" style="margin-top:18px"><span class="lbl">Backup</span><div class="sub">Copy this to move your teams and bets to another phone.</div>
         <button class="ghost" data-h="${h(() => { const t = JSON.stringify({favs: S.favs, bets: S.bets, unit: S.unit}); (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => alert('Copied.'), () => { $('#ioBox').value = t; }); })}">COPY BACKUP</button>
         <textarea id="ioBox" placeholder="Paste a backup here to restore"></textarea>
         <button class="ghost" data-h="${h(() => { try { const d = JSON.parse($('#ioBox').value); if (!Array.isArray(d.favs) || !Array.isArray(d.bets)) throw 0; if (confirm('Replace your teams and bets with this backup?')){ S.favs = d.favs; S.bets = d.bets; if (d.unit) S.unit = d.unit; save(); alert('Restored.'); back(); } } catch(e){ alert("That doesn't look like a SportsMF backup."); } })}">RESTORE BACKUP</button>
       </div>
+
       <div class="toggle" style="margin-top:12px"><span style="font-size:20px">CALL SHEET BETS IN MY BETS</span><button class="${S.showCS ? 'on' : ''}" data-h="${h(() => { S.showCS = !S.showCS; save(); render(); })}">${S.showCS ? 'ON' : 'OFF'}</button></div>
       <button class="ghost" style="margin-top:18px" data-h="${h(() => { if (confirm('Reset My Teams to the default list?')){ S.favs = JSON.parse(JSON.stringify(DEFAULT_FAVS)); save(); back(); } })}">RESET MY TEAMS</button>
       <div class="sub" style="margin-top:14px">Scores, lines and news from ESPN's public feeds. NFL props from your Call Sheet odds pull.<br>Build ${esc(BUILD)}</div>`;
   }
 };
+
+/* ================= THEME ================= */
+const darkQ = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+function applyTheme(){
+  const dark = S.theme === 'dark' || (S.theme === 'auto' && darkQ && darkQ.matches);
+  document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+  const m = document.querySelector('meta[name="theme-color"]');
+  if (m) m.setAttribute('content', dark ? '#0D0F12' : '#FFFFFF');
+}
+if (darkQ && darkQ.addEventListener) darkQ.addEventListener('change', () => { if (S.theme === 'auto') applyTheme(); });
+applyTheme();
 
 /* ================= BOOT ================= */
 document.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click', () => tab(b.dataset.tab)));
@@ -1557,7 +1825,7 @@ setInterval(() => {
 /* Re-read Call Sheet data whenever it could have changed: coming back to
    this tab or app, Safari restoring the page, or the Call Sheet saving
    while both are open (the 'storage' event fires in this tab then). */
-const FORM_VIEWS = ['addbet', 'addteam', 'settings'];
+const FORM_VIEWS = ['addbet', 'addteam', 'settings', 'mflsetup'];
 function refreshFromCS(){ _cs = {t: 0, v: []}; if (!FORM_VIEWS.includes(cur().name) && $('#sheet').hidden) render(true); }
 document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshFromCS(); });
 window.addEventListener('pageshow', e => { if (e.persisted) refreshFromCS(); });
