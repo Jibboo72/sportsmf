@@ -97,7 +97,7 @@ input,select,textarea{font:500 17px var(--body);border:1.5px solid var(--silver)
 input,select{height:48px}
 textarea{padding:10px 12px;min-height:110px;font-size:14px}
 .seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;border-bottom:1px solid var(--line);flex:none}
-.seg button{height:46px;border:0;background:none;font:700 19px var(--disp);color:var(--dim);border-bottom:3px solid transparent;letter-spacing:.5px}
+.seg button{height:46px;border:0;background:none;font:700 18px var(--disp);color:var(--dim);border-bottom:3px solid transparent;letter-spacing:0;padding:0 2px}
 .seg button.on{color:var(--ink);border-bottom-color:var(--blue)}
 .head{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:14px 0;border-top:3px solid var(--ink);border-bottom:1px solid var(--line);gap:6px;flex:none}
 .head .side{display:flex;flex-direction:column;align-items:center;gap:5px;min-width:0}
@@ -211,7 +211,7 @@ const TEAM_LGS = LEAGUES.filter(l => l.type === 'team');
 const COLLEGE_LGS = LEAGUES.filter(l => l.college);
 const BOOKS = ['DraftKings','FanDuel','Bet365','BetMGM','Fanatics','Hard Rock','theScore','BetRivers','betPARX','Caesars','ESPN BET'];
 const BOOK_MAP = {draftkings:'DraftKings', fanduel:'FanDuel', betmgm:'BetMGM', caesars:'Caesars', espnbet:'ESPN BET', bet365:'Bet365', fanatics:'Fanatics', hardrock:'Hard Rock', hardrockbet:'Hard Rock', betrivers:'BetRivers', thescore:'theScore', betparx:'betPARX'};
-const BUILD = '2026-10-15 v4';
+const BUILD = '2026-10-15 v6';
 /* The Call Sheet lives on the same site (jibboo72.github.io), so its saved
    data and its published odds file are both readable from here. */
 const CS_KEY = 'nfl-call-sheet-v3';
@@ -224,6 +224,10 @@ const MARKETS = {
   passing_touchdowns:'Pass TDs', rushing_touchdowns:'Rush TDs', passing_yards:'Pass Yards', rushing_yards:'Rush Yards'
 };
 const YESNO = /touchdown/i;
+/* Call Sheet cards and how its markets map to the odds-file markets. */
+const CS_CARDS = {slot:'Slot Floor', long:'Volume Longest', fade:'Matchup Fade', qb:'Longest Completion', td:'Anytime TD', tetd:'TE Anytime TD', ctd:'College TD', flyer:'Injury Flyer', gparlay:'Group Parlay'};
+const CS_MKT = {rec:'receiving_receptions', yds:'receiving_yards', lng:'receiving_longestReception', tgt:'receiving_targets', td:'touchdowns', ftd:'firstTouchdown', ptd:'passing_touchdowns'};
+const nameKey = s => String(s || '').toLowerCase().replace(/\b(jr|sr|ii|iii|iv)\b\.?/g, '').replace(/[^a-z]/g, '');
 const DEFAULT_FAVS = [
   {name:'Detroit Lions', lg:['nfl']},
   {name:'Detroit Tigers', lg:['mlb']},
@@ -318,6 +322,25 @@ function csWeekStats(wk){
     });
     return {pl: ret - staked, staked, open, w, l, p};
   } catch (e){ return null; }
+}
+/* Picks sitting on your Call Sheet cards for the sheet week you're on and
+   the current calendar week (usually the same). Read-only. */
+function csPicks(){
+  try {
+    const raw = localStorage.getItem(CS_KEY);
+    if (!raw) return [];
+    const s = JSON.parse(raw);
+    const weeks = [...new Set([s.week, csWeekNow()].filter(w => w !== null && w !== undefined).map(String))];
+    const out = [];
+    weeks.forEach(wk => {
+      const cards = (s.cards && s.cards[wk]) || {};
+      Object.entries(cards).forEach(([cid, cd]) => (cd && cd.picks || []).forEach(pk => {
+        if (!pk || !pk.who || pk.cfb) return;
+        out.push({card: CS_CARDS[cid] || cid, cid, who: pk.who, key: nameKey(pk.who), mkt: CS_MKT[pk.mkt] || pk.mkt, side: pk.side, line: pk.line, odds: pk.odds, book: pk.book, grade: pk.grade || null, placed: !!pk.betId, what: pk.what || ''});
+      }));
+    });
+    return out;
+  } catch (e){ return []; }
 }
 const signedMoney = v => (v > 0 ? '+' : v < 0 ? '−' : '') + '$' + Math.abs(v).toFixed(2);
 let _cs = {t: 0, v: []};
@@ -666,11 +689,33 @@ function propsTab(d, ev, p, room){
   const g = d.csGame;
   if (!g || !(g.props || []).length) return '<div class="empty">No props in your Call Sheet odds pull for this game yet.</div>';
   const have = [...new Set(g.props.filter(x => x.player).map(x => x.market))];
+  /* Your Call Sheet card picks for players in this game. */
+  const inGame = new Set(g.props.filter(x => x.player).map(x => nameKey(playerName(x.player))));
+  const gamePicks = csPicks().filter(pk => inGame.has(pk.key));
+  gamePicks.forEach(pk => { if (pk.mkt && !have.includes(pk.mkt)) have.push(pk.mkt); });
+  const pickCount = k => gamePicks.filter(pk => pk.mkt === k).length;
   const order = Object.keys(MARKETS).filter(k => have.includes(k)).concat(have.filter(k => !MARKETS[k]));
-  const mkt = have.includes(p.mkt) ? p.mkt : (have.includes('receiving_receptions') ? 'receiving_receptions' : order[0]);
+  const firstPicked = order.find(k => pickCount(k));
+  const mkt = have.includes(p.mkt) ? p.mkt : (firstPicked || (have.includes('receiving_receptions') ? 'receiving_receptions' : order[0]));
   const yn = YESNO.test(mkt);
   const rows = propRows(g, mkt);
-  const per = perPage(room, 150, 66, 2);
+  rows.forEach(r => { r.key = nameKey(r.name); });
+  gamePicks.filter(pk => pk.mkt === mkt).forEach(pk => {
+    const side = pk.side === 'under' ? 'under' : 'over';
+    const line = pk.side === 'atleast' ? Number(pk.line) - 0.5 : Number(pk.line);
+    const hit = rows.find(r => r.key === pk.key && (yn || +r.line === line));
+    if (hit){ hit.pick = pk; hit.pickSide = side; return; }
+    const syn = {player: pk.who, name: pk.who, key: pk.key, line, pick: pk, pickSide: side};
+    syn[side] = pk.odds ? {odds: pk.odds, book: pk.book || 'Call Sheet'} : null;
+    rows.push(syn);
+  });
+  rows.sort((a, b) => (b.pick ? 1 : 0) - (a.pick ? 1 : 0));
+  const summary = gamePicks.length ? (() => {
+    const by = {};
+    gamePicks.forEach(pk => { by[pk.card] = (by[pk.card] || 0) + 1; });
+    return `<div style="font:700 14px var(--body);color:var(--green-t)">★ ${gamePicks.length} Call Sheet pick${gamePicks.length > 1 ? 's' : ''} here · ${esc(Object.entries(by).map(([c, n]) => c + (n > 1 ? ' ' + n : '')).join(' · '))}</div>`;
+  })() : '';
+  const per = perPage(room, gamePicks.length ? 165 : 140, 64, 2);
   const pg = slicePage(rows, per, p.page);
   const label = MARKETS[mkt] || mkt;
   const btn = (r, side) => {
@@ -683,8 +728,15 @@ function propsTab(d, ev, p, room){
       go('addbet', {step:'form', lg: ev.lg, ev, f});
     })}"><b style="font-size:15px">${yn ? 'YES' : side === 'over' ? 'O' : 'U'} ${fmtOdds(pr.odds)}</b><small style="font:600 11px var(--body);color:inherit;opacity:.75">${esc(pr.book)}</small></button>`;
   };
-  return `<div class="row" style="gap:8px"><select id="mktSel" aria-label="Prop market" style="flex:1">${order.map(k => `<option value="${esc(k)}" ${k === mkt ? 'selected' : ''}>${esc(MARKETS[k] || k)}</option>`).join('')}</select></div>
-    <div>${pg.items.length ? pg.items.map(r => `<div class="lrow" style="padding:8px 2px"><span class="main"><span style="font:700 17px var(--body);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(r.name)}</span>${yn ? '' : `<span class="sub">Line ${esc(r.line)}</span>`}</span><span style="display:flex;gap:6px">${btn(r, 'over')}${yn ? '' : btn(r, 'under')}</span></div>`).join('') : '<div class="empty">No lines in this market.</div>'}</div>
+  const pickTag = r => {
+    const pk = r.pick;
+    const res = pk.grade === 'W' ? ' · WON' : pk.grade === 'L' ? ' · LOST' : pk.grade === 'P' ? ' · PUSH' : pk.placed ? ' · BET PLACED' : '';
+    const sideTxt = yn ? '' : ' · ' + (pk.side === 'atleast' ? pk.line + '+' : (pk.side === 'under' ? 'U ' : 'O ') + pk.line);
+    return `<span style="font:700 13px var(--body);color:var(--green-t);letter-spacing:.3px">★ ${esc(pk.card.toUpperCase())}${esc(sideTxt)}${esc(res)}</span>`;
+  };
+  const rowHtml = r => `<div class="lrow" style="padding:8px ${r.pick ? '10px' : '2px'};${r.pick ? 'background:var(--green-bg);border-radius:12px;border-bottom-color:transparent;margin-bottom:4px' : ''}"><span class="main"><span style="font:700 17px var(--body);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(r.name)}</span>${r.pick ? pickTag(r) : (yn ? '' : `<span class="sub">Line ${esc(r.line)}</span>`)}</span><span style="display:flex;gap:6px">${btn(r, 'over')}${yn ? '' : btn(r, 'under')}</span></div>`;
+  return `${summary}<div class="row" style="gap:8px"><select id="mktSel" aria-label="Prop market" style="flex:1">${order.map(k => `<option value="${esc(k)}" ${k === mkt ? 'selected' : ''}>${esc(MARKETS[k] || k)}${pickCount(k) ? '  ★' + pickCount(k) : ''}</option>`).join('')}</select></div>
+    <div>${pg.items.length ? pg.items.map(rowHtml).join('') : '<div class="empty">No lines in this market.</div>'}</div>
     ${pager(pg.page, pg.pages, n => setP({page: n}))}
     <div class="sub">Best price across books · from your Call Sheet pull ${esc(ago(d.csPulled))}</div>`;
 }
@@ -746,6 +798,10 @@ VIEWS.game = {
     }
     gradeEvents([ev]);
     const out = {s, ev, comp};
+    if ((p.lg === 'nfl' || p.lg === 'cfb') && (!p.tab || p.tab === 'odds' || p.tab === 'model')){
+      try { const mf = await modelFile(p.lg); out.model = modelFor(mf, ev); out.ats = atsRecord(mf, p.lg); }
+      catch (e){ out.modelErr = e.message; }
+    }
     if (p.lg === 'nfl' && p.tab === 'props'){
       try { const od = await csOdds(); out.csGame = csGameFor(od, ev); out.csPulled = od.pulled; }
       catch (e){ out.oddsErr = e.message; }
@@ -774,21 +830,105 @@ VIEWS.game = {
     });
     const used = 300 + mybets.length * 92;
     let body = '';
-    if (t === 'odds') body = oddsTab(s, ev);
-    if (t === 'props') body = propsTab(d, ev, p, avail - used);
+    if (t === 'odds') body = oddsTab(s, ev, d);
+    if (t === 'props') body = propsTab(d, ev, p, avail - used + 60);
+    if (t === 'model') body = modelBlock(d, ev) || '<div class="empty">No power rating for this game.</div>';
     if (t === 'box') body = boxTab(s, ev, comp, p, avail - used);
     if (t === 'plays') body = playsTab(s, ev, p, avail - used);
     if (t === 'news') body = gameNewsTab(s, ev, p, avail - used);
     return `<div class="row">${R.stack.length > 1 ? `<button class="back" data-h="${h(back)}"><b>‹</b>Back</button>` : '<span></span>'}<span class="lbl">${esc(LG[ev.lg].name)}</span></div>
       <div class="head">${side(ev.away)}${mid}${side(ev.home)}</div>
-      <div class="seg">${segBtn('odds','ODDS')}${ev.lg === 'nfl' ? segBtn('props','PROPS') : ''}${segBtn('box','BOX')}${segBtn('plays','PLAYS')}${segBtn('news','NEWS')}</div>
+      <div class="seg">${segBtn('odds','ODDS')}${ev.lg === 'nfl' ? segBtn('props','PROPS') : ''}${ev.lg === 'nfl' || ev.lg === 'cfb' ? segBtn('model','MODEL') : ''}${segBtn('box','BOX')}${segBtn('plays','PLAYS')}${segBtn('news','NEWS')}</div>
       <div style="display:flex;flex-direction:column;gap:14px;margin-top:14px;flex:1">${body}</div>
       ${mybets.length ? `<div class="stack" style="margin-top:12px">${mybets.join('')}</div>` : ''}
-      <button class="ghost" style="margin-top:12px;flex:none" data-h="${h(() => go('addbet', {step:'form', lg: ev.lg, ev, f: defaultForm(ev)}))}">+ BET THIS GAME</button>`;
+      ${t === 'props' ? '' : `<button class="ghost" style="margin-top:12px;flex:none" data-h="${h(() => go('addbet', {step:'form', lg: ev.lg, ev, f: defaultForm(ev)}))}">+ BET THIS GAME</button>`}`;
   }
 };
 function fromDate(iso){ const d = new Date(iso); return isNaN(d) ? '' : d.toLocaleDateString(undefined, {weekday:'short', month:'short', day:'numeric'}); }
-function oddsTab(s, ev){
+/* ---------- Your power ratings vs the market ----------
+   Everything is worked in "home margin": positive = home team better by
+   that many points. NFL file: proj and spread are already home margin.
+   College file: pem and line are home spreads (negative = home favored),
+   so they flip. Lines ESPN shows now are preferred over the file's,
+   since they're fresher. */
+const CS_MODEL = {
+  nfl: ['/callsheet-data/data/games-2026.json', 'https://raw.githubusercontent.com/Jibboo72/callsheet-data/main/data/games-2026.json'],
+  cfb: ['/callsheet-data/data/cfb-ratings-2026.json', 'https://raw.githubusercontent.com/Jibboo72/callsheet-data/main/data/cfb-ratings-2026.json']
+};
+async function modelFile(lg){
+  let last;
+  for (const u of CS_MODEL[lg]){ try { return await getJSON(u, 30 * 60000); } catch (e){ last = e; } }
+  throw last || new Error('Ratings file unavailable');
+}
+function dayGap(a, b){ return Math.abs(fromYmd(String(a).replace(/-/g, '')).getTime() - fromYmd(ymd(new Date(b))).getTime()) / 864e5; }
+function modelFor(file, ev){
+  const games = (file && file.games) || [];
+  if (ev.lg === 'nfl'){
+    const h = normAbbr(ev.home.abbr), a = normAbbr(ev.away.abbr);
+    const g = games.find(x => normAbbr(x.home) === h && normAbbr(x.away) === a && x.date && dayGap(x.date, ev.date) <= 1);
+    return g && g.proj !== null && g.proj !== undefined ? {g, modelM: +g.proj, fileM: g.spread !== null && g.spread !== undefined ? +g.spread : null} : null;
+  }
+  let g = games.find(x => String(x.id) === String(ev.id));
+  if (!g){
+    const hit = (nm, t) => { const n = nameKey(nm); return n && (n === nameKey(t.short) || nameKey(t.name).startsWith(n)); };
+    g = games.find(x => hit(x.home, ev.home) && hit(x.away, ev.away) && x.date && dayGap(x.date, ev.date) <= 1);
+  }
+  if (!g || g.fcs || g.pem === null || g.pem === undefined) return null;
+  return {g, modelM: -g.pem, fileM: g.line !== null && g.line !== undefined ? -g.line : null, total: g.pem_total, fileTotal: g.line_total, wp: g.home_wp};
+}
+function atsRecord(file, lg){
+  let w = 0, l = 0, p = 0;
+  ((file && file.games) || []).forEach(g => {
+    if (lg === 'cfb'){
+      if (g.ats === 'W') w++; else if (g.ats === 'L') l++; else if (g.ats === 'P') p++;
+      return;
+    }
+    if (!('margin' in g) || g.spread === null || g.spread === undefined || g.proj === null || g.proj === undefined || g.proj === g.spread) return;
+    const res = g.margin - g.spread;
+    if (res === 0){ p++; return; }
+    const homeSide = g.proj > g.spread;
+    if ((homeSide && res > 0) || (!homeSide && res < 0)) w++; else l++;
+  });
+  return {w, l, p};
+}
+function sprText(ev, m){
+  if (m === null || m === undefined || isNaN(m)) return '—';
+  if (Math.abs(m) < 0.05) return 'PK';
+  const fav = m > 0 ? ev.home : ev.away;
+  return `${fav.abbr || fav.short} −${Math.abs(m).toFixed(1)}`;
+}
+function modelBlock(d, ev){
+  if (!d.model) return d.modelErr ? `<div class="sub">Power ratings unavailable right now (${esc(d.modelErr)}).</div>` : '';
+  const m = d.model;
+  const hl = parseSpread(ev);
+  const marketM = hl !== null ? -hl : m.fileM;
+  const edge = marketM !== null ? m.modelM - marketM : null;
+  let lean = '';
+  if (edge !== null && Math.abs(edge) >= 0.05){
+    const side = edge > 0 ? ev.home : ev.away;
+    const num = edge > 0 ? -marketM : marketM;
+    lean = `${side.abbr || side.short} ${num === 0 ? 'PK' : fmtLine(Math.round(num * 10) / 10)}`;
+  }
+  const strong = edge !== null && Math.abs(edge) >= 2;
+  const ats = d.ats || {w:0, l:0, p:0};
+  const n = ats.w + ats.l;
+  let rows = `<div class="tr"><span>Your line</span><span></span><span>${esc(sprText(ev, m.modelM))}</span></div>
+    <div class="tr"><span>Market</span><span></span><span>${esc(sprText(ev, marketM))}</span></div>
+    <div class="tr"><span>Edge</span><span></span><span style="color:${strong ? 'var(--green-t)' : 'var(--muted)'}">${edge === null ? '—' : Math.abs(edge).toFixed(1) + ' pts'}</span></div>`;
+  if (lean) rows += `<div class="tr" style="${strong ? 'background:var(--green-bg)' : ''}"><span>Model side</span><span></span><span style="font-weight:800;color:${strong ? 'var(--green-t)' : 'var(--ink)'}">${esc(lean)}</span></div>`;
+  if (m.total !== null && m.total !== undefined){
+    const ou = ev.odds.ou !== undefined && ev.odds.ou !== null ? +ev.odds.ou : (m.fileTotal !== null && m.fileTotal !== undefined ? +m.fileTotal : null);
+    const te = ou !== null ? m.total - ou : null;
+    rows += `<div class="tr"><span>Total</span><span style="color:var(--muted)">${ou !== null ? 'O/U ' + ou : '—'}</span><span>${(+m.total).toFixed(1)}${te !== null && Math.abs(te) >= 0.05 ? ` <small style="color:${Math.abs(te) >= 3 ? 'var(--green-t)' : 'var(--muted)'}">${te > 0 ? 'Over' : 'Under'} ${Math.abs(te).toFixed(1)}</small>` : ''}</span></div>`;
+  }
+  if (m.wp !== null && m.wp !== undefined) rows += `<div class="tr"><span>Win prob</span><span style="color:var(--muted)">${esc(ev.away.abbr)} ${Math.round((1 - m.wp) * 100)}%</span><span>${esc(ev.home.abbr)} ${Math.round(m.wp * 100)}%</span></div>`;
+  const rec = n ? `2026 model ATS ${ats.w}–${ats.l}${ats.p ? '–' + ats.p : ''} (${Math.round(ats.w / n * 100)}%)` : '2026 ATS record builds as games finish';
+  const note = ev.lg === 'nfl' ? 'Tested about 54% vs closing spreads. A flag to look closer, not a bet.' : 'Held-out 2025 test ran about 52% ATS. A flag to look closer, not a bet.';
+  return `<div><div class="lbl" style="color:var(--blue)">Your power ratings</div>
+    <div class="tbl" style="margin-top:6px">${rows}</div>
+    <div class="sub" style="margin-top:6px">${esc(rec)} · ${esc(note)}</div></div>`;
+}
+function oddsTab(s, ev, d){
   const pc = (s.pickcenter && s.pickcenter[0]) || null;
   let wp = null;
   if (s.winprobability && s.winprobability.length){ const last = s.winprobability[s.winprobability.length - 1]; if (last && isFinite(last.homeWinPercentage)) wp = last.homeWinPercentage * 100; }
@@ -798,7 +938,13 @@ function oddsTab(s, ev){
     const aw = Math.round(100 - wp), hw = Math.round(wp);
     html += `<div><div class="lbl">Win probability</div><div class="wp"><div style="width:${aw}%"></div></div><div class="row" style="margin-top:6px;font:600 15px var(--body)"><span>${esc(ev.away.abbr)} ${aw}%</span><span>${esc(ev.home.abbr)} ${hw}%</span></div></div>`;
   }
-  if (!pc && !ev.odds.details) return html + '<div class="empty">No lines posted for this game.</div>';
+  let mb = '';
+  if (d && d.model){
+    const hl0 = parseSpread(ev); const mm = hl0 !== null ? -hl0 : d.model.fileM;
+    const e0 = mm !== null ? Math.abs(d.model.modelM - mm) : null;
+    mb = `<button class="lrow" style="border:1.5px solid ${e0 !== null && e0 >= 2 ? 'var(--green)' : 'var(--line)'};border-radius:14px;padding:10px 14px;${e0 !== null && e0 >= 2 ? 'background:var(--green-bg)' : ''}" data-h="${h(() => setP({tab:'model', page:0}))}"><span class="main"><span class="lbl" style="color:var(--blue)">Your power rating</span><span style="font:800 20px var(--disp)">${esc(sprText(ev, d.model.modelM))}${e0 !== null ? ` <span style="font:600 15px var(--body);color:${e0 >= 2 ? 'var(--green-t)' : 'var(--muted)'}">· ${e0.toFixed(1)} pt edge</span>` : ''}</span></span><span style="color:var(--blue);font:800 20px var(--disp)">MODEL ›</span></button>`;
+  }
+  if (!pc && !ev.odds.details) return html + '<div class="empty">No lines posted for this game.</div>' + mb;
   const o = pc || {details: ev.odds.details, overUnder: ev.odds.ou, homeTeamOdds:{moneyLine: ev.odds.homeML}, awayTeamOdds:{moneyLine: ev.odds.awayML}};
   const g = (obj, ...ks) => ks.reduce((a, k) => a && a[k], obj);
   const openSpread = g(o, 'pointSpread', 'home', 'open', 'line');
@@ -812,7 +958,7 @@ function oddsTab(s, ev){
     <div class="tr"><span>Total</span><span style="color:var(--muted)">${cell(openTotal)}</span><span>${cell(o.overUnder)}</span></div>
     <div class="tr"><span>${esc(ev.away.abbr)} ML</span><span style="color:var(--muted)">${cell(openAML)}</span><span>${fmtOdds(g(o,'awayTeamOdds','moneyLine'))}</span></div>
     <div class="tr"><span>${esc(ev.home.abbr)} ML</span><span style="color:var(--muted)">${cell(openHML)}</span><span>${fmtOdds(g(o,'homeTeamOdds','moneyLine'))}</span></div>
-  </div>${pc && pc.provider && pc.provider.name ? `<div class="sub">Lines via ${esc(pc.provider.name)}</div>` : ''}`;
+  </div>${pc && pc.provider && pc.provider.name ? `<div class="sub">Lines via ${esc(pc.provider.name)}</div>` : ''}${mb}`;
   return html;
 }
 function lineScore(comp, ev){
