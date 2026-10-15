@@ -211,7 +211,7 @@ const TEAM_LGS = LEAGUES.filter(l => l.type === 'team');
 const COLLEGE_LGS = LEAGUES.filter(l => l.college);
 const BOOKS = ['DraftKings','FanDuel','Bet365','BetMGM','Fanatics','Hard Rock','theScore','BetRivers','betPARX','Caesars','ESPN BET'];
 const BOOK_MAP = {draftkings:'DraftKings', fanduel:'FanDuel', betmgm:'BetMGM', caesars:'Caesars', espnbet:'ESPN BET', bet365:'Bet365', fanatics:'Fanatics', hardrock:'Hard Rock', hardrockbet:'Hard Rock', betrivers:'BetRivers', thescore:'theScore', betparx:'betPARX'};
-const BUILD = '2026-10-15 v2';
+const BUILD = '2026-10-15 v3';
 /* The Call Sheet lives on the same site (jibboo72.github.io), so its saved
    data and its published odds file are both readable from here. */
 const CS_KEY = 'nfl-call-sheet-v3';
@@ -271,10 +271,36 @@ function csBets(){
         id: 'cs-' + b.id, cs: true, lg: (b.league === 'cfb' || b.kind === 'cfb') ? 'cfb' : 'nfl',
         type: b.kind === 'parlay' ? 'parlay' : b.kind === 'prop' ? 'prop' : 'side', pick: b.desc || 'Call Sheet bet',
         odds: isNaN(odds) ? null : odds, book: b.book || 'Call Sheet', units: Math.round(stake / u * 100) / 100, stake,
-        status, plUnits: pl / u, date: b.ts ? new Date(b.ts).toISOString() : null, settled: status !== 'open' ? (b.ts || 0) : null, wk: b.wk
+        status, plUnits: pl / u, date: b.ts ? new Date(b.ts).toISOString() : null, settled: status !== 'open' ? (b.ts || 0) : null, wk: b.wk,
+        matches: [b.match].concat((b.legs || []).map(l => l && l.match)).filter(m => m && m.includes('@')),
+        gdate: b.gdate || '', ts: b.ts || 0
       };
     });
   } catch (e){ return []; }
+}
+let _cs = {t: 0, v: []};
+function csCached(){ if (Date.now() - _cs.t > 4000) _cs = {t: Date.now(), v: csBets()}; return _cs.v; }
+/* Call Sheet game bets carry "AWAY @ HOME" plus the game date. Match that
+   to an ESPN game by team (abbreviation or name) and date, within a day
+   either way to cover late-night UTC kickoffs. */
+function teamHit(token, t){
+  token = String(token || '').trim();
+  if (!token) return false;
+  const ab = s => (ABBR_ALIAS[String(s || '').toUpperCase()] || String(s || '').toUpperCase());
+  return ab(token) === ab(t.abbr) || same(token, t.short) || same(token, t.name);
+}
+function csMatches(b, ev){
+  if (!b.matches.length) return false;
+  const evDay = fromYmd(ymd(new Date(ev.date))).getTime();
+  let dayOk;
+  if (b.gdate && /^\d{4}-\d{2}-\d{2}$/.test(b.gdate)){
+    const gd = new Date(+b.gdate.slice(0,4), +b.gdate.slice(5,7) - 1, +b.gdate.slice(8,10)).getTime();
+    dayOk = Math.abs(gd - evDay) <= 864e5;
+  } else {
+    dayOk = b.ts && b.ts <= new Date(ev.date).getTime() + 6 * 3600e3 && new Date(ev.date).getTime() - b.ts < 7 * 864e5;
+  }
+  if (!dayOk) return false;
+  return b.matches.some(m => { const [a, hm] = m.split('@'); return teamHit(a, ev.away) && teamHit(hm, ev.home); });
 }
 
 /* ================= UTIL ================= */
@@ -366,7 +392,14 @@ function norm(ev, lgKey){
 }
 function favOf(teamName, lgKey){ return S.favs.find(f => f.lg.includes(lgKey) && (same(f.name, teamName) || same(f.label, teamName))); }
 const isFav = ev => !!(favOf(ev.home.name, ev.lg) || favOf(ev.away.name, ev.lg));
-const betsFor = id => S.bets.filter(b => b.eventId === String(id));
+/* Pass a game (not just an id) to include linked Call Sheet bets too. */
+function betsFor(x){
+  const isEv = x && typeof x === 'object';
+  const id = String(isEv ? x.id : x);
+  const own = S.bets.filter(b => b.eventId === id);
+  if (!isEv || (x.lg !== 'nfl' && x.lg !== 'cfb')) return own;
+  return own.concat(csCached().filter(b => csMatches(b, x)));
+}
 function learnLogos(evs){
   let ch = false;
   for (const f of S.favs){
@@ -478,7 +511,7 @@ function linesText(ev){
   return parts.length ? esc(parts.join(' · ')) : 'No line yet';
 }
 function gameCard(ev){
-  const bs = betsFor(ev.id);
+  const bs = betsFor(ev);
   const tag = bs.length ? betTag(bs) : (isFav(ev) ? '<span class="tag my">MY TEAM</span>' : '');
   const row = (t, other, mlv) => {
     const right = ev.state === 'pre'
@@ -495,7 +528,7 @@ function gameCard(ev){
 }
 function gameRow(ev, onTap){
   const fa = favOf(ev.away.name, ev.lg), fh = favOf(ev.home.name, ev.lg);
-  const hasBet = betsFor(ev.id).length > 0;
+  const hasBet = betsFor(ev).length > 0;
   const sc = t => ev.state === 'pre' ? '' : esc(t.score);
   return `<button class="gr" data-h="${h(onTap)}">
     <span class="stc">${ev.state === 'in' ? `<span class="livec">${esc(ev.detail)}</span>` : ev.state === 'pre' ? esc(tm(ev.date)) : esc(ev.detail || 'Final')}</span>
@@ -624,6 +657,12 @@ VIEWS.tonight = {
     const keys = new Set();
     S.favs.forEach(f => f.lg.forEach(k => { if (LG[k]) keys.add(k); }));
     S.bets.forEach(b => { if (b.eventId && LG[b.lg] && ymd(new Date(b.date)) === t) keys.add(b.lg); });
+    const tDay = fromYmd(t).getTime();
+    csCached().forEach(b => {
+      if (!b.matches.length) return;
+      const near = b.gdate ? Math.abs(new Date(b.gdate + 'T12:00:00').getTime() - tDay - 12 * 3600e3) <= 1.5 * 864e5 : (Date.now() - b.ts < 7 * 864e5);
+      if (near) keys.add(b.lg);
+    });
     const rs = await Promise.allSettled([...keys].map(k => board(LG[k], t).then(es => es.map(e => norm(e, k)))));
     const evs = []; let fails = 0;
     rs.forEach(r => r.status === 'fulfilled' ? evs.push(...r.value) : fails++);
@@ -631,14 +670,14 @@ VIEWS.tonight = {
     gradeEvents(evs);
     learnLogos(evs);
     const seen = new Set();
-    const mine = evs.filter(e => (isFav(e) || betsFor(e.id).length) && !seen.has(e.id) && seen.add(e.id)).sort(sortEvents);
+    const mine = evs.filter(e => (isFav(e) || betsFor(e).length) && !seen.has(e.id) && seen.add(e.id)).sort(sortEvents);
     return {evs: mine, fails};
   },
   build(p, d, avail){
     const f = p.filter || 'all';
     let list = d.evs;
     if (f === 'my') list = list.filter(isFav);
-    if (f === 'bet') list = list.filter(e => betsFor(e.id).length);
+    if (f === 'bet') list = list.filter(e => betsFor(e).length);
     const per = perPage(avail, 170, 164, 1);
     const pg = slicePage(list, per, p.page);
     const chip = (lbl, k) => `<button class="chip ${f === k ? 'on' : ''}" data-h="${h(() => setP({filter: k, page: 0}))}">${lbl}</button>`;
@@ -683,8 +722,9 @@ VIEWS.game = {
       ? `<div class="mid"><div class="scr" style="font-size:34px">${esc(tm(ev.date))}</div><div class="st" style="color:var(--muted)">${esc(fromDate(ev.date))}</div></div>`
       : `<div class="mid"><div class="scr">${esc(ev.away.score)}–${esc(ev.home.score)}</div><div class="st ${ev.state === 'in' ? 'livec' : ''}">${ev.state === 'in' ? '● ' : ''}${esc(ev.detail)}</div></div>`;
     const segBtn = (k, l) => `<button class="${t === k ? 'on' : ''}" data-h="${h(() => setP({tab: k, page: 0}))}">${l}</button>`;
-    const mybets = betsFor(ev.id).map(b => {
+    const mybets = betsFor(ev).map(b => {
       let st;
+      if (b.cs) return `<button class="mybet" style="background:#fff;width:100%;text-align:left;font:inherit" data-h="${h(() => csSheet(b))}"><span style="display:flex;flex-direction:column;gap:3px;min-width:0"><span class="lbl" style="color:var(--green-t)">MY BET · CALL SHEET</span><span class="big">${esc(b.pick)} ${b.odds !== null ? fmtOdds(b.odds) : ''}</span><span class="sub">${b.units}u · ${money(b.stake)}</span></span>${b.status !== 'open' ? `<span class="tag ${b.status}">${b.status.toUpperCase()} ${fmtU(profit(b))}</span>` : '<span class="tag my">OPEN</span>'}</button>`;
       if (b.status !== 'open') st = `<span class="tag ${b.status}">${b.status.toUpperCase()} ${fmtU(profit(b))}</span>`;
       else if (ev.state === 'in' && b.type !== 'prop'){ const r = evalBet(b, ev); st = r === 'won' ? '<span class="tag cov">COVERING</span>' : r === 'lost' ? '<span class="tag ncov">NOT COVERING</span>' : r === 'push' ? '<span class="tag push">ON THE NUMBER</span>' : '<span class="tag livet">LIVE</span>'; }
       else st = '<span class="tag my">OPEN</span>';
