@@ -105,6 +105,20 @@ button.bband{width:100%;border-left:0;border-right:0;border-bottom:0;background:
 .legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:-1px}
 .hitc{display:grid;grid-template-columns:1fr 150px;gap:10px;align-items:center;border:1.5px solid var(--line);border-radius:14px;padding:10px 14px}
 .hitc b{font:900 26px/1.05 var(--disp);display:block}
+.pbx{border:1.5px solid var(--line);border-radius:14px;overflow:hidden}
+.pbx .sc2{overflow-x:auto;scrollbar-width:none}
+.pbx .sc2::-webkit-scrollbar{display:none}
+.pbx .pr{display:grid;align-items:center;column-gap:4px;padding:7px 12px;border-top:1px solid var(--line);font:600 15px var(--body);font-variant-numeric:tabular-nums;min-width:max-content}
+.pbx .pr>span:not(:first-child){text-align:right}
+.pbx .pr>span:first-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.pbx .ph2{background:var(--soft);font:700 12px var(--body);letter-spacing:.6px;color:var(--muted);border-top:0}
+.pbx .ph2>span:first-child{color:var(--ink);letter-spacing:1px}
+.pbx .tot{font-weight:800;background:var(--soft)}
+.pbx .bet{background:var(--green-bg)}
+.pbx .wide .pr>span:first-child{position:sticky;left:0;background:var(--card);z-index:1;padding-right:6px}
+.pbx .wide .ph2>span:first-child,.pbx .wide .tot>span:first-child{background:var(--soft)}
+.pbx .wide .bet>span:first-child{background:var(--green-bg)}
+.pbx .pos{font:600 12px var(--body);color:var(--muted);margin-left:5px}
 .linkbtn{border:0;background:none;color:var(--blue);font:600 16px var(--body);padding:10px 0;text-align:left;text-decoration:none;display:inline-block}
 #ptr{position:fixed;left:0;right:0;transition:height .15s;top:calc(52px + env(safe-area-inset-top));height:0;overflow:hidden;display:flex;align-items:flex-end;justify-content:center;font:600 13px var(--body);color:var(--muted);z-index:15;pointer-events:none}
 #ptr span{padding-bottom:8px}
@@ -312,7 +326,7 @@ const TEAM_LGS = LEAGUES.filter(l => l.type === 'team');
 const COLLEGE_LGS = LEAGUES.filter(l => l.college);
 const BOOKS = ['DraftKings','FanDuel','Bet365','BetMGM','Fanatics','Hard Rock','theScore','BetRivers','betPARX','Caesars','ESPN BET'];
 const BOOK_MAP = {draftkings:'DraftKings', fanduel:'FanDuel', betmgm:'BetMGM', caesars:'Caesars', espnbet:'ESPN BET', bet365:'Bet365', fanatics:'Fanatics', hardrock:'Hard Rock', hardrockbet:'Hard Rock', betrivers:'BetRivers', thescore:'theScore', betparx:'betPARX'};
-const BUILD = '2026-10-15 v16';
+const BUILD = '2026-10-15 v17';
 /* The Call Sheet lives on the same site (jibboo72.github.io), so its saved
    data and its published odds file are both readable from here. */
 const CS_KEY = 'nfl-call-sheet-v3';
@@ -660,19 +674,68 @@ function liveRead(b, ev){
   const d = mine - opp;
   return d > 0 ? {cls: 'up', text: 'Leading by ' + n1(d)} : d < 0 ? {cls: 'down', text: 'Trailing by ' + n1(d)} : {cls: 'even', text: 'Tied'};
 }
+/* Football player props, read against the live box score (game screen
+   only, where the box score is loaded): anytime TD, receptions, rec /
+   rush / pass yards, pass TDs, longest reception. */
+function boxStat(s, nameTest, cat, label){
+  let found = null;
+  ((s && s.boxscore && s.boxscore.players) || []).forEach(tg => (tg.statistics || []).forEach(c => {
+    if (c.name !== cat) return;
+    const i = (c.labels || []).map(l => String(l).toUpperCase()).indexOf(label);
+    if (i < 0) return;
+    (c.athletes || []).forEach(a => { if (nameTest(a.athlete)) found = (found || 0) + (parseFloat(a.stats[i]) || 0); });
+  }));
+  return found;
+}
+function propRead(b, ev, s){
+  if (!s || !/football/.test(ev.path || '') || ev.state === 'pre') return null;
+  const t = ' ' + String(b.pick || '').toLowerCase().replace(/−/g, '-') + ' ';
+  const pick = b.pick;
+  const test = a => {
+    const nm = String((a && a.displayName) || '').toLowerCase().replace(/\b(jr|sr|ii|iii|iv)\b\.?/g, '').trim();
+    if (!nm) return false;
+    if (t.includes(nm)) return true;
+    const last = nm.split(' ').filter(Boolean).pop() || '';
+    return last.length >= 4 && new RegExp('[^a-z]' + reEsc(last) + '[^a-z]').test(t);
+  };
+  const fin = ev.state === 'post';
+  let m;
+  if (/(anytime|atd|\btd scorer|touchdown|\btd\b)/.test(t) && !/pass(ing)?\s*td/.test(t)){
+    const td = (boxStat(s, test, 'rushing', 'TD') || 0) + (boxStat(s, test, 'receiving', 'TD') || 0);
+    if (boxStat(s, test, 'rushing', 'CAR') === null && boxStat(s, test, 'receiving', 'REC') === null && !td) return fin ? {cls: 'down', text: 'No TD'} : {cls: '', text: 'No touches yet'};
+    return td ? {cls: 'up', text: 'Scored' + (td > 1 ? ' ×' + td : '')} : (fin ? {cls: 'down', text: 'No TD'} : {cls: '', text: 'No TD yet'});
+  }
+  const kinds = [[/pass(ing)?\s*td/, 'passing', 'TD', 'pass TD'], [/pass(ing)?\s*y(ar)?ds/, 'passing', 'YDS', 'pass yds'], [/rush(ing)?\s*y(ar)?ds/, 'rushing', 'YDS', 'rush yds'],
+    [/long(est)?\s*rec/, 'receiving', 'LONG', 'long'], [/rec(eiving)?\s*y(ar)?ds/, 'receiving', 'YDS', 'rec yds'], [/\brec(eptions?)?\b|catches/, 'receiving', 'REC', 'rec']];
+  const k = kinds.find(x => x[0].test(t));
+  if (!k) return null;
+  let side = 'over', line = null;
+  if ((m = t.match(/(?:^|[^a-z])(o|over|u|under)\s*(\d+(?:\.\d+)?)/))){ side = /^o/.test(m[1]) ? 'over' : 'under'; line = +m[2]; }
+  else if ((m = t.match(/(\d+(?:\.\d+)?)\s*\+/))) line = +m[1] - 0.5;
+  if (line === null) return null;
+  const v = boxStat(s, test, k[1], k[2]);
+  const val = v === null ? 0 : v;
+  const lbl = `${val} ${k[3]}`;
+  if (side === 'over'){
+    if (val > line) return {cls: 'up', text: lbl + ' · hit'};
+    return fin ? {cls: 'down', text: lbl + ' · missed'} : {cls: '', text: `${lbl} · need ${Math.floor(line) + 1 - val} more`};
+  }
+  if (val > line) return {cls: 'down', text: lbl + ' · over'};
+  return fin ? {cls: 'up', text: lbl + ' · hit'} : {cls: '', text: `${lbl} · ${n1(line - val)} under`};
+}
 /* One line per bet: the pick on the left, how it's doing on the right. */
-function betState(b, ev){
+function betState(b, ev, s){
   if (b.status !== 'open'){
     const cls = b.status === 'won' ? 'up' : b.status === 'lost' ? 'down' : 'even';
     return {cls, text: (b.status === 'won' ? 'Won ' : b.status === 'lost' ? 'Lost ' : 'Push ') + (b.status === 'push' ? '' : fmtU(profit(b)))};
   }
   if (!ev || ev.state === 'pre') return {cls: '', text: (b.units ? b.units + 'u · ' : '') + money(b.cs ? b.stake : b.units * S.unit)};
-  const L = liveRead(b, ev);
-  if (L) return L;
+  const L = liveRead(b, ev) || propRead(b, ev, s);
+  if (L) return (b.cs && ev.state === 'post' && L.text.indexOf('grade') < 0) ? {cls: L.cls, text: L.text + ' · grade in Call Sheet'} : L;
   return {cls: '', text: ev.state === 'in' ? 'In play' : (b.cs ? 'Final · grade in Call Sheet' : 'Final · tap to grade')};
 }
-function betBand(b, ev, tag, onTap){
-  const st = betState(b, ev);
+function betBand(b, ev, tag, onTap, s){
+  const st = betState(b, ev, s);
   const odds = b.odds !== null && b.odds !== undefined ? ' ' + fmtOdds(b.odds) : '';
   const inner = `<b>${esc(b.pick)}${esc(odds)}</b><span class="st">${esc(st.text)}</span>`;
   return tag === 'button'
@@ -1542,16 +1605,16 @@ VIEWS.game = {
     const tapBet = b => () => b.cs ? csSheet(b) : betSheet(b);
     let body = '';
     if (t === 'bet') body = betTab(d, ev, p, avail, bets, tapBet);
-    if (t === 'box') body = boxTab(s, ev, comp, p, avail);
+    if (t === 'box') body = boxTab(s, ev, comp, p);
     if (t === 'scoring') body = scoringTab(s, ev);
     if (t === 'plays') body = playsTab(s, ev);
     if (t === 'pitches') body = pitchesTab(d, ev, p);
     if (t === 'news') body = gameNewsTab(s, ev, p, avail);
     let strip = '';
     if (t !== 'bet' && bets.length){
-      if (bets.length <= 2) strip = `<div class="bstrip">${bets.map(b => betBand(b, ev, 'button', tapBet(b))).join('')}</div>`;
+      if (bets.length <= 2) strip = `<div class="bstrip">${bets.map(b => betBand(b, ev, 'button', tapBet(b), s)).join('')}</div>`;
       else {
-        const sts = bets.map(b => betState(b, ev).cls);
+        const sts = bets.map(b => betState(b, ev, s).cls);
         const up = sts.filter(c => c === 'up').length, dn = sts.filter(c => c === 'down').length;
         const cls = up && !dn ? 'up' : dn && !up ? 'down' : '';
         const txt = [up ? up + ' winning' : '', dn ? dn + ' losing' : ''].filter(Boolean).join(' · ') || 'See how they\'re doing';
@@ -1584,7 +1647,7 @@ function betTab(d, ev, p, avail, bets, tapBet){
   if (sub === 'props') html += ev.lg === 'nhl' ? nhlPropsTab(d, ev, p, avail) : propsTab(d, ev, p, avail);
   if (sub === 'model') html += modelBlock(d, ev) || '<div class="empty">No power rating for this game.</div>';
   if (bets.length){
-    html += `<div><div class="lbl" style="margin-bottom:6px">Your bets</div><div class="card" style="cursor:default">${bets.map(b => betBand(b, ev, 'button', tapBet(b))).join('')}</div></div>`;
+    html += `<div><div class="lbl" style="margin-bottom:6px">Your bets</div><div class="card" style="cursor:default">${bets.map(b => betBand(b, ev, 'button', tapBet(b), d.s)).join('')}</div></div>`;
   }
   html += `<div class="row" style="justify-content:flex-start;gap:18px;flex-wrap:wrap">${ev.lg === 'nfl' || ev.lg === 'cfb' ? `<a class="linkbtn" href="${CS_URL}">Log a bet in the Call Sheet ›</a>` : ''}<button class="linkbtn" data-h="${h(() => go('addbet', {step:'form', lg: ev.lg, ev, f: defaultForm(ev)}))}">+ Add one here</button></div>`;
   return html;
@@ -1724,7 +1787,7 @@ function lineScore(comp, ev){
     <div style="${tmpl}"><span>${esc(ev.away.abbr)}</span>${Array.from({length: cols}, (_, i) => `<span>${v(la[start + i])}</span>`).join('')}<b>${esc(ev.away.score)}</b></div>
     <div style="${tmpl}"><span>${esc(ev.home.abbr)}</span>${Array.from({length: cols}, (_, i) => `<span>${v(lh[start + i])}</span>`).join('')}<b>${esc(ev.home.score)}</b></div></div>`;
 }
-function boxTab(s, ev, comp, p, room){
+function teamStatsTable(s, ev){
   const teams = (s.boxscore && s.boxscore.teams) || [];
   const ta = teams.find(x => x.team && String(x.team.id) === String(ev.away.id)) || teams[0];
   const th = teams.find(x => x.team && String(x.team.id) === String(ev.home.id)) || teams[1];
@@ -1735,12 +1798,75 @@ function boxTab(s, ev, comp, p, room){
   } else if (sa.length && sa[0].stats){
     sa.forEach((g, gi) => (g.stats || []).forEach((x, i) => { const y = sh[gi] && sh[gi].stats && sh[gi].stats[i]; rows.push({label: (g.name ? g.name.charAt(0).toUpperCase() + g.name.slice(1) + ' ' : '') + (x.abbreviation || x.label || x.name), a: x.displayValue, h: y ? y.displayValue : '—'}); }));
   }
+  if (!rows.length) return '';
+  return `<div class="tbl"><div class="tr th c4"><span>TEAM STATS</span><span>${esc(ev.away.abbr)}</span><span>${esc(ev.home.abbr)}</span></div>${rows.map(r => `<div class="tr c4"><span>${esc(r.label)}</span><span>${esc(r.a)}</span><span>${esc(r.h)}</span></div>`).join('')}</div>`;
+}
+/* Player box score. ESPN gives every team sport the same shape: per team,
+   stat groups (passing, rushing… / batting, pitching… / skaters, goalies)
+   with column labels and one row per player. Football shows the columns
+   that matter on a phone; other sports show all and scroll sideways with
+   the name pinned. Anyone named in one of your bets on this game is
+   starred. */
+const FB_ORDER = ['passing', 'rushing', 'receiving', 'defensive', 'interceptions', 'fumbles', 'kicking', 'punting', 'kickReturns', 'puntReturns'];
+const FB_COLS = {
+  passing: ['C/ATT', 'YDS', 'TD', 'INT', 'QBR'], rushing: ['CAR', 'YDS', 'AVG', 'TD', 'LONG'], receiving: ['REC', 'YDS', 'TD', 'LONG', 'TGTS'],
+  defensive: ['TOT', 'SOLO', 'SACKS', 'TFL', 'PD'], interceptions: ['INT', 'YDS', 'TD'], fumbles: ['FUM', 'LOST', 'REC'],
+  kicking: ['FG', 'PCT', 'LONG', 'XP', 'PTS'], punting: ['NO', 'YDS', 'AVG', 'IN 20', 'LONG'], kickReturns: ['NO', 'YDS', 'AVG', 'LONG', 'TD'], puntReturns: ['NO', 'YDS', 'AVG', 'LONG', 'TD']
+};
+const FB_TITLE = {defensive: 'Defense', kickReturns: 'Kick returns', puntReturns: 'Punt returns'};
+function betNames(ev){
+  const txt = betsFor(ev).map(b => ' ' + String(b.pick || '').toLowerCase() + ' ').join(' ');
+  return a => {
+    const nm = String((a && a.displayName) || '').toLowerCase().replace(/\b(jr|sr|ii|iii|iv)\b\.?/g, '').trim();
+    if (!nm || !txt.trim()) return false;
+    if (txt.includes(nm)) return true;
+    const last = nm.split(' ').filter(Boolean).pop() || '';
+    return last.length >= 4 && new RegExp('[^a-z]' + reEsc(last) + '[^a-z]').test(txt);
+  };
+}
+function playerTables(s, ev, teamId){
+  const groups = (s.boxscore && s.boxscore.players) || [];
+  const tg = groups.find(g => g.team && String(g.team.id) === String(teamId));
+  if (!tg) return '';
+  const fb = /football/.test(ev.path || '');
+  let cats = (tg.statistics || []).filter(c => (c.athletes || []).length);
+  if (fb) cats = cats.slice().sort((a, b) => (FB_ORDER.indexOf(a.name) + 1 || 99) - (FB_ORDER.indexOf(b.name) + 1 || 99));
+  const hit = betNames(ev);
+  return cats.map(c => {
+    const labels = c.labels || c.names || [];
+    let idx = labels.map((l, i) => i);
+    const up = labels.map(l => String(l).toUpperCase());
+    if (fb && FB_COLS[c.name]) idx = FB_COLS[c.name].map(l => up.indexOf(l)).filter(i => i >= 0);
+    const live = (c.athletes || []).filter(a => !a.didNotPlay && (a.stats || []).length);
+    const wide = !fb && idx.length > 5;
+    const colW = i => Math.max(34, Math.round(Math.max(String(labels[i]).length, ...live.map(a => String(a.stats[i] ?? '').length), ...(c.totals ? [String(c.totals[i] ?? '').length] : [])) * 8.6 + 10)) + 'px';
+    const tmpl = `grid-template-columns:${wide ? '128px' : 'minmax(0,1fr)'} ${idx.map(colW).join(' ')}`;
+    const title = FB_TITLE[c.name] || c.text || c.displayName || (c.name ? c.name.charAt(0).toUpperCase() + c.name.slice(1) : 'Players');
+    const rows = live.map(a => {
+      const at = a.athlete || {};
+      const star = hit(at);
+      const nm = at.shortName || at.displayName || '';
+      const pos = !fb && at.position && at.position.abbreviation ? `<small class="pos">${esc(at.position.abbreviation)}</small>` : '';
+      return `<div class="pr${star ? ' bet' : ''}" style="${tmpl}"><span>${star ? '<b style="color:var(--green-t)">★ </b>' : ''}${esc(nm)}${pos}</span>${idx.map(i => `<span>${esc(a.stats[i] ?? '')}</span>`).join('')}</div>`;
+    });
+    if (!rows.length) return '';
+    const tot = (c.totals || []).length && fb && ['passing', 'rushing', 'receiving'].includes(c.name)
+      ? `<div class="pr tot" style="${tmpl}"><span>Team</span>${idx.map(i => `<span>${esc(c.totals[i] ?? '')}</span>`).join('')}</div>` : '';
+    const body = `<div class="pr ph2" style="${tmpl}"><span>${esc(String(title).toUpperCase())}</span>${idx.map(i => `<span>${esc(labels[i])}</span>`).join('')}</div>${rows.join('')}${tot}`;
+    return `<div class="pbx">${wide ? `<div class="sc2 wide">${body}</div>` : body}</div>`;
+  }).join('');
+}
+function boxTab(s, ev, comp, p){
   const ls = lineScore(comp, ev);
-  const lsH = ls ? 130 : 0;
-  if (!rows.length) return ls || '<div class="empty">Box score shows up once the game starts.</div>';
-  const per = perPage(room, lsH + 100, 43, 3);
-  const pg = slicePage(rows, per, p.page);
-  return `${ls}<div class="tbl"><div class="tr th c4"><span>TEAM STATS</span><span>${esc(ev.away.abbr)}</span><span>${esc(ev.home.abbr)}</span></div>${pg.items.map(r => `<div class="tr c4"><span>${esc(r.label)}</span><span>${esc(r.a)}</span><span>${esc(r.h)}</span></div>`).join('')}</div>${pager(pg.page, pg.pages, n => setP({page: n}))}`;
+  const groups = (s.boxscore && s.boxscore.players) || [];
+  const team = teamStatsTable(s, ev);
+  if (!groups.length) return (ls + team) || '<div class="empty">Box score shows up once the game starts.</div>';
+  const favSide = favOf(ev.away.name, ev.lg) && !favOf(ev.home.name, ev.lg) ? ev.away : ev.home;
+  const pick = p.bx === 'team' ? 'team' : (p.bx && [String(ev.away.id), String(ev.home.id)].includes(String(p.bx)) ? String(p.bx) : String(favSide.id));
+  const chip = (k, l) => `<button class="chip ${pick === k ? 'on' : ''}" data-h="${h(() => setP({bx: k}))}">${l}</button>`;
+  const chips = `<div class="chips sm">${chip(String(ev.away.id), esc(ev.away.abbr || ev.away.short))}${chip(String(ev.home.id), esc(ev.home.abbr || ev.home.short))}${team ? chip('team', 'Team stats') : ''}</div>`;
+  const body = pick === 'team' ? team : (playerTables(s, ev, pick) || '<div class="empty">No player stats yet.</div>');
+  return `${ls}${chips}${body}`;
 }
 /* Period names per sport, for section headers. */
 function periodName(lg, per){
