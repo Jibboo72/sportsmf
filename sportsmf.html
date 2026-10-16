@@ -53,6 +53,9 @@ main{flex:1;min-height:0;overflow-y:auto;padding:4px 16px 12px;display:flex;flex
 .chip{height:36px;padding:0 13px;border-radius:18px;border:1.5px solid var(--silver);background:var(--card);color:var(--ink);font:600 15px var(--body);white-space:nowrap}
 .chip.on{background:var(--ink);border-color:var(--ink);color:var(--on-ink)}
 .chips.sm .chip{height:34px;padding:0 10px;font-size:14px}
+.chips.scrollx{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin-left:-16px;margin-right:-16px;padding:0 16px}
+.chips.scrollx::-webkit-scrollbar{display:none}
+.ghdr{position:sticky;top:-4px;background:var(--bg);padding:10px 0 6px;z-index:1}
 .stack{display:flex;flex-direction:column;gap:8px}
 .card{display:block;width:100%;text-align:left;border:1.5px solid var(--line);border-radius:14px;overflow:hidden;background:var(--card);padding:0;font:inherit}
 .meta{display:flex;justify-content:space-between;gap:8px;padding:8px 14px 0;font:700 13px var(--body);letter-spacing:1px;color:var(--muted);text-transform:uppercase}
@@ -214,11 +217,26 @@ const LEAGUES = [
   {key:'tennis', name:'Tennis', short:'TENNIS', path:'tennis/atp', paths:['tennis/atp','tennis/wta'], type:'tennis', nodate:true}
 ];
 const LG = Object.fromEntries(LEAGUES.map(l => [l.key, l]));
+/* College football filters. ESPN group ids; "Slums" = every other FBS
+   conference (MAC, Mountain West, Sun Belt, independents). */
+const CFB_CONF = [
+  {k:'fbs', l:'FBS', g:[80], m:null},
+  {k:'fcs', l:'FCS', g:[81], m:null},
+  {k:'sec', l:'SEC', g:[8], m:/southeastern|^sec\b/i},
+  {k:'b10', l:'Big Ten', g:[5], m:/big ten/i},
+  {k:'acc', l:'ACC', g:[1], m:/atlantic coast|^acc\b/i},
+  {k:'b12', l:'Big 12', g:[4], m:/big 12/i},
+  {k:'p12', l:'Pac-12', g:[9], m:/pac-?12/i},
+  {k:'cusa', l:'C-USA', g:[12], m:/conference usa|c-usa/i},
+  {k:'aac', l:'American', g:[151], m:/american/i},
+  {k:'slums', l:'Slums', g:[15, 17, 37, 18], m:/mid-american|mountain west|sun belt|independent/i}
+];
+const CFB = Object.fromEntries(CFB_CONF.map(c => [c.k, c]));
 const TEAM_LGS = LEAGUES.filter(l => l.type === 'team');
 const COLLEGE_LGS = LEAGUES.filter(l => l.college);
 const BOOKS = ['DraftKings','FanDuel','Bet365','BetMGM','Fanatics','Hard Rock','theScore','BetRivers','betPARX','Caesars','ESPN BET'];
 const BOOK_MAP = {draftkings:'DraftKings', fanduel:'FanDuel', betmgm:'BetMGM', caesars:'Caesars', espnbet:'ESPN BET', bet365:'Bet365', fanatics:'Fanatics', hardrock:'Hard Rock', hardrockbet:'Hard Rock', betrivers:'BetRivers', thescore:'theScore', betparx:'betPARX'};
-const BUILD = '2026-10-15 v11';
+const BUILD = '2026-10-15 v12';
 /* The Call Sheet lives on the same site (jibboo72.github.io), so its saved
    data and its published odds file are both readable from here. */
 const CS_KEY = 'nfl-call-sheet-v3';
@@ -413,7 +431,8 @@ function logo(src, cls){ return src ? `<img class="logoimg" src="${esc(src)}" al
    without scrolling. Remembered per screen and phone height. */
 const FIT = {};
 let FITKEY = '';
-function perPage(avail, used, itemH, min){ return Math.max(min || 1, Math.floor((avail - used) / itemH) + (FIT[FITKEY] || 0)); }
+/* Scrolling lists: everything on one page. */
+function perPage(){ return 1e9; }
 
 /* ================= DATA ================= */
 const mem = new Map();
@@ -427,11 +446,11 @@ async function getJSON(url, ttl){
   mem.set(url, {t: Date.now(), v});
   return v;
 }
-async function board(lg, date){
+async function board(lg, date, q2){
   const paths = lg.paths || [lg.path];
   const qs = [];
   if (date && !lg.nodate) qs.push('dates=' + date);
-  if (lg.q) qs.push(lg.q);
+  if (q2 || lg.q) qs.push(q2 || lg.q);
   const rs = await Promise.allSettled(paths.map(p =>
     getJSON(`${BASE}${p}/scoreboard${qs.length ? '?' + qs.join('&') : ''}`).then(d => (d.events || []).map(e => Object.assign({}, e, {_path: p})))
   ));
@@ -534,10 +553,11 @@ function betTag(bs){
 /* ================= ROUTER ================= */
 const R = {tab:'tonight', stack:[{name:'tonight', p:{}}]};
 const cur = () => R.stack[R.stack.length - 1];
-function go(name, p){ R.stack.push({name, p: p || {}}); render(); }
+function go(name, p){ const c = cur(); if (c) c.scroll = $('#view').scrollTop; R.stack.push({name, p: p || {}}); render(); }
 function back(){ if (R.stack.length > 1) R.stack.pop(); render(); }
 function tab(t, p){ R.tab = t; R.stack = [{name:t, p: p || {}}]; render(); }
 function setP(patch){ Object.assign(cur().p, patch); render(); }
+/* setP keeps the list where it was only for in-place changes; filters jump to top. */
 let B = [];
 function h(fn){ B.push(fn); return B.length - 1; }
 document.addEventListener('click', e => {
@@ -557,11 +577,13 @@ async function render(silent){
     const data = V.load ? await V.load(s.p) : null;
     if (seq !== seqNo) return;
     FITKEY = s.name + '|' + (s.p.tab || s.p.mode || '') + '|' + window.innerHeight;
+    const keep = silent ? v.scrollTop : (s.scroll || 0);
     B = [];
     v.innerHTML = V.build(s.p, data, avail);
-    if (!silent) v.scrollTop = 0;
+    v.scrollTop = keep;
+    s.scroll = 0;
+    v.querySelectorAll('.chips.scrollx').forEach(c => { const on = c.querySelector('.chip.on'); if (on) c.scrollLeft = on.offsetLeft - c.offsetLeft - c.clientWidth / 2 + on.offsetWidth / 2; });
     if (V.after) V.after(s.p, data, v);
-    autoFit(V, s, data, avail, 0);
   } catch (err){
     if (seq !== seqNo) return;
     if (silent) return;
@@ -1275,12 +1297,21 @@ VIEWS.league = {
   async load(p){
     const l = LG[p.lg];
     if (p.mode === 'standings'){
-      const d = await getJSON(`${STAND}${l.path}/standings`, 300000);
+      let q = '';
+      if (l.key === 'cfb') q = '?group=' + ((p.conf || 'fbs') === 'fcs' ? 81 : 80);
+      else if (!l.college) q = '?level=' + ({div: 3, conf: 2, league: 1}[p.level || 'div']);
+      const d = await getJSON(`${STAND}${l.path}/standings${q}`, 300000);
       return {stand: d};
     }
     if (p.mode === 'rankings'){
       const d = await getJSON(`${BASE}${l.path}/rankings`, 600000);
       return {rank: d};
+    }
+    if (l.key === 'cfb'){
+      const c = CFB[p.conf || 'fbs'];
+      const parts = await Promise.all(c.g.map(g => board(l, p.date, `groups=${g}&limit=300`)));
+      const seen = new Set();
+      return {evs: parts.flat().filter(e => !seen.has(e.id) && seen.add(e.id))};
     }
     const evs = await board(l, p.date);
     return {evs};
@@ -1292,7 +1323,9 @@ VIEWS.league = {
     let html = `<div class="row"><button class="back" data-h="${h(back)}" aria-label="Back to Sports"><b>‹</b><span class="title" style="color:var(--ink);font-size:30px;margin-left:2px">${esc(l.name.toUpperCase())}</span></button></div>`;
     const modes = ['scores'].concat(l.rankings ? ['rankings'] : [], canStand ? ['standings'] : []);
     if (modes.length > 1) html += `<div class="seg" style="margin-top:8px">${modes.map(m => `<button class="${mode === m ? 'on' : ''}" data-h="${h(() => setP({mode: m, page: 0}))}">${m.toUpperCase()}</button>`).join('')}</div>`;
-    const room = avail - (modes.length > 1 ? 150 : 100);
+    const room = avail;
+    if (l.key === 'cfb' && mode !== 'rankings') html += `<div class="chips sm scrollx" style="margin-top:10px">${CFB_CONF.map(c => `<button class="chip ${(p.conf || 'fbs') === c.k ? 'on' : ''}" data-h="${h(() => setP({conf: c.k}))}">${c.l}</button>`).join('')}</div>`;
+    if (mode === 'standings' && !l.college) html += `<div class="chips sm" style="margin-top:10px">${[['div','Division'],['conf', l.key === 'nfl' ? 'Conference' : l.key === 'mlb' ? 'League' : 'Conference'],['league', 'Overall']].map(([k, t]) => `<button class="chip ${(p.level || 'div') === k ? 'on' : ''}" data-h="${h(() => setP({level: k}))}">${t}</button>`).join('')}</div>`;
     if (mode === 'standings') return html + standingsBody(l, d.stand, p, room);
     if (mode === 'rankings') return html + rankingsBody(l, d.rank, p, room);
     if (l.type === 'team'){
@@ -1383,32 +1416,31 @@ function rankingsBody(l, d, p, room){
   };
   return `${chips}<div class="lbl" style="margin-top:12px">${esc(poll.name || poll.shortName || 'Poll')}${poll.headline ? ' · ' + esc(poll.headline) : ''}</div><div>${pg.items.map(row).join('')}</div>${pager(pg.page, pg.pages, n => setP({page: n}))}`;
 }
-function standingsBody(l, d, p, room){
-  const groups = [];
+function standingsBody(l, d, p){
+  let groups = [];
   (function walk(n){
     if (!n) return;
     if (n.standings && n.standings.entries && n.standings.entries.length) groups.push({name: n.name || n.abbreviation || l.name, entries: n.standings.entries});
     (n.children || []).forEach(walk);
   })(d);
+  if (l.key === 'cfb'){
+    const c = CFB[p.conf || 'fbs'];
+    if (c.m) groups = groups.filter(g => c.m.test(g.name) && !(c.k === 'aac' && /mid-american/i.test(g.name)));
+  }
   if (!groups.length) return '<div class="empty">Standings not available.</div>';
-  const per = perPage(room, 110, 44, 4);
-  const pages = [];
-  groups.forEach(g => {
-    const sorted = g.entries.slice().sort((a, b) => stat(b, 'winPercent', true) - stat(a, 'winPercent', true) || stat(b, 'points', true) - stat(a, 'points', true));
-    for (let i = 0; i < sorted.length; i += per) pages.push({name: g.name, rows: sorted.slice(i, i + per), off: i});
-  });
-  const pg = Math.min(Math.max(0, p.page || 0), pages.length - 1);
-  const cur2 = pages[pg];
+  const sortFn = l.pts
+    ? (a, b) => stat(b, 'points', true) - stat(a, 'points', true) || stat(b, 'winPercent', true) - stat(a, 'winPercent', true)
+    : (a, b) => stat(b, 'winPercent', true) - stat(a, 'winPercent', true) || stat(b, 'wins', true) - stat(a, 'wins', true);
   const row = (e, i) => {
     const t = e.team || {};
     const w = stat(e, 'wins'), lo = stat(e, 'losses'), ot = stat(e, 'otLosses'), ti = stat(e, 'ties');
     const rec = stat(e, 'overall') || [w, lo].concat(ot && ot !== '0' ? [ot] : ti && ti !== '0' ? [ti] : []).filter(x => x !== '').join('-');
-    const extra = l.pts ? 'PTS ' + (stat(e, 'points') || '—') : (stat(e, 'gamesBehind') ? 'GB ' + stat(e, 'gamesBehind') : '');
+    const extra = l.pts ? 'PTS ' + (stat(e, 'points') || '—') : l.college ? (stat(e, 'vs. Conf.') || stat(e, 'vsconf') ? 'Conf ' + (stat(e, 'vs. Conf.') || stat(e, 'vsconf')) : '') : (stat(e, 'gamesBehind') ? 'GB ' + stat(e, 'gamesBehind') : '');
     const fav = favOf(t.displayName, l.key);
     const lg2 = t.logos && t.logos[0] && t.logos[0].href;
-    return `<div class="lb" style="grid-template-columns:30px 1fr auto auto"><span class="p">${cur2.off + i + 1}</span><span class="${fav ? 'fav' : ''}" style="display:flex;align-items:center;gap:8px;font:800 19px var(--disp);min-width:0">${lg2 ? `<img class="logoimg" style="width:22px;height:22px" src="${esc(lg2)}" alt="">` : ''}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(t.shortDisplayName || t.displayName || '')}</span></span><span style="font:700 16px var(--body)">${esc(rec)}</span><span class="sub" style="min-width:58px;text-align:right">${esc(extra)}</span></div>`;
+    return `<div class="lb" style="grid-template-columns:30px 1fr auto auto"><span class="p">${i + 1}</span><span class="${fav ? 'fav' : ''}" style="display:flex;align-items:center;gap:8px;font:800 19px var(--disp);min-width:0">${lg2 ? `<img class="logoimg" style="width:22px;height:22px" src="${esc(lg2)}" alt="" loading="lazy">` : ''}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(t.shortDisplayName || t.displayName || '')}</span></span><span style="font:700 16px var(--body)">${esc(rec)}</span><span class="sub" style="min-width:58px;text-align:right">${esc(extra)}</span></div>`;
   };
-  return `<div class="lbl" style="margin-top:12px">${esc(cur2.name)}</div><div>${cur2.rows.map(row).join('')}</div>${pager(pg, pages.length, n => setP({page: n}))}`;
+  return groups.map(g => `<div class="lbl ghdr">${esc(g.name)}</div><div>${g.entries.slice().sort(sortFn).map(row).join('')}</div>`).join('');
 }
 function stat(e, name, num){
   const s = (e.stats || []).find(x => x.name === name || x.type === name);
