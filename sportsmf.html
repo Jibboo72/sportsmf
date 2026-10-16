@@ -86,6 +86,25 @@ button.bband{width:100%;border-left:0;border-right:0;border-bottom:0;background:
 .bstrip{position:sticky;bottom:-12px;margin:12px -16px -12px;background:var(--card);border-top:1.5px solid var(--line);box-shadow:0 -6px 18px rgba(0,0,0,.06);z-index:3;flex:none}
 .bstrip .bband{border-top:0;border-bottom:1px solid var(--line);min-height:42px;padding:6px 16px}
 .bstrip .bband:last-child{border-bottom:0}
+.mlbsit{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:14px;border:1.5px solid var(--line);border-radius:14px;padding:10px 14px}
+.mlbsit .cnt{display:flex;flex-direction:column;align-items:center;line-height:1}
+.mlbsit .cnt b{font:900 40px/1 var(--disp);font-variant-numeric:tabular-nums;letter-spacing:1px}
+.mlbsit .cnt span{font:600 13px var(--body);color:var(--muted);margin-top:3px}
+.mlbsit .inn{font:800 22px var(--disp);text-align:right}
+.mu{display:flex;flex-direction:column;border:1.5px solid var(--line);border-radius:14px;overflow:hidden}
+.mu>div{display:grid;grid-template-columns:30px 1fr auto;align-items:center;gap:8px;padding:8px 14px;border-top:1px solid var(--line)}
+.mu>div:first-child{border-top:0}
+.mu .r{font:700 12px var(--body);color:var(--muted);letter-spacing:1px}
+.mu .n{font:700 17px var(--body);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mu .x{font:600 14px var(--body);color:var(--muted);white-space:nowrap}
+.zone{width:100%;max-width:300px;align-self:center;display:block}
+.prow{display:grid;grid-template-columns:28px 1fr auto;align-items:center;gap:10px;padding:8px 2px;border-bottom:1px solid var(--line)}
+.prow .pn{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font:800 13px var(--body)}
+.prow .cn{font:800 18px var(--disp);color:var(--muted);font-variant-numeric:tabular-nums}
+.legend{display:flex;justify-content:center;gap:14px;font:600 12px var(--body);color:var(--muted)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:-1px}
+.hitc{display:grid;grid-template-columns:1fr 150px;gap:10px;align-items:center;border:1.5px solid var(--line);border-radius:14px;padding:10px 14px}
+.hitc b{font:900 26px/1.05 var(--disp);display:block}
 .linkbtn{border:0;background:none;color:var(--blue);font:600 16px var(--body);padding:10px 0;text-align:left;text-decoration:none;display:inline-block}
 #ptr{position:fixed;left:0;right:0;transition:height .15s;top:calc(52px + env(safe-area-inset-top));height:0;overflow:hidden;display:flex;align-items:flex-end;justify-content:center;font:600 13px var(--body);color:var(--muted);z-index:15;pointer-events:none}
 #ptr span{padding-bottom:8px}
@@ -293,7 +312,7 @@ const TEAM_LGS = LEAGUES.filter(l => l.type === 'team');
 const COLLEGE_LGS = LEAGUES.filter(l => l.college);
 const BOOKS = ['DraftKings','FanDuel','Bet365','BetMGM','Fanatics','Hard Rock','theScore','BetRivers','betPARX','Caesars','ESPN BET'];
 const BOOK_MAP = {draftkings:'DraftKings', fanduel:'FanDuel', betmgm:'BetMGM', caesars:'Caesars', espnbet:'ESPN BET', bet365:'Bet365', fanatics:'Fanatics', hardrock:'Hard Rock', hardrockbet:'Hard Rock', betrivers:'BetRivers', thescore:'theScore', betparx:'betPARX'};
-const BUILD = '2026-10-15 v14';
+const BUILD = '2026-10-15 v15';
 /* The Call Sheet lives on the same site (jibboo72.github.io), so its saved
    data and its published odds file are both readable from here. */
 const CS_KEY = 'nfl-call-sheet-v3';
@@ -541,7 +560,7 @@ function norm(ev, lgKey){
   const bc = (c.broadcasts && c.broadcasts[0] && c.broadcasts[0].names && c.broadcasts[0].names[0]) || '';
   const si = c.situation || {};
   return {
-    sit: {text: si.downDistanceText || si.shortDownDistanceText || '', poss: si.possession ? String(si.possession) : '', rz: !!si.isRedZone, outs: si.outs, on: [si.onFirst && '1st', si.onSecond && '2nd', si.onThird && '3rd'].filter(Boolean)},
+    sit: {text: si.downDistanceText || si.shortDownDistanceText || '', poss: si.possession ? String(si.possession) : '', rz: !!si.isRedZone, outs: si.outs, balls: si.balls, strikes: si.strikes, on: [si.onFirst && '1st', si.onSecond && '2nd', si.onThird && '3rd'].filter(Boolean)},
     id: String(ev.id), lg: lgKey, path: ev._path || LG[lgKey].path, date: ev.date,
     name: ev.shortName || ev.name, state: st.state || 'pre', detail: st.shortDetail || st.detail || '',
     home: teamOf(home), away: teamOf(away),
@@ -662,7 +681,7 @@ function betBand(b, ev, tag, onTap){
 function sitText(ev){
   const si = ev.sit || {};
   if (si.text && /football/.test(ev.path || LG[ev.lg].path)) return si.text + (si.rz ? ' · Red zone' : '');
-  if (ev.lg === 'mlb' && si.outs !== undefined && si.outs !== null) return `${si.outs} out${si.on.length ? ' · On ' + si.on.join(' & ') : ' · Bases empty'}`;
+  if (ev.lg === 'mlb' && si.outs !== undefined && si.outs !== null) return `${si.balls !== undefined && si.strikes !== undefined ? si.balls + '-' + si.strikes + ', ' : ''}${si.outs} out${si.on.length ? ' · On ' + si.on.join(' & ') : ' · Bases empty'}`;
   return '';
 }
 /* Score flash: remembered per game so a changed score lights up once. */
@@ -1220,6 +1239,178 @@ VIEWS.tonight = {
   }
 };
 
+/* ---------- MLB pitch tracker ----------
+   Reads MLB's public Stats API, the same feed Gameday runs on. It's
+   personal, non-commercial use, which MLB's notice on the feed allows.
+   To keep phone data low, a tiny linescore is checked every poll and the
+   bigger play-by-play is only re-read when something changed (or every
+   45 seconds). If MLB's feed can't be reached, ESPN's plays are shown. */
+const MLB_API = 'https://statsapi.mlb.com/api/';
+const MLB_PK = {}, MLB_PBP = {};
+const isoDay = d => d.toISOString().slice(0, 10);
+async function mlbGamePk(ev){
+  if (MLB_PK[ev.id]) return MLB_PK[ev.id];
+  const t = new Date(ev.date);
+  const d = await getJSON(`${MLB_API}v1/schedule?sportId=1&startDate=${isoDay(new Date(t - 864e5))}&endDate=${isoDay(new Date(+t + 864e5))}`, 3600e3);
+  const games = (d.dates || []).flatMap(x => x.games || []);
+  const hit = (mt, et) => { const n = nameKey(mt && mt.name); return !!n && (n === nameKey(et.name) || n.endsWith(nameKey(et.short))); };
+  const g = games.filter(x => x.teams && hit(x.teams.home.team, ev.home) && hit(x.teams.away.team, ev.away))
+    .sort((x, y) => Math.abs(new Date(x.gameDate) - t) - Math.abs(new Date(y.gameDate) - t))[0];
+  if (!g) throw new Error('game not found in MLB\'s schedule');
+  return (MLB_PK[ev.id] = g.gamePk);
+}
+async function mlbData(ev){
+  const pk = await mlbGamePk(ev);
+  const ls = await getJSON(`${MLB_API}v1/game/${pk}/linescore`, 6000);
+  const off = ls.offense || {};
+  const key = [ls.currentInning, ls.inningHalf, ls.balls, ls.strikes, ls.outs, off.batter && off.batter.id, ls.teams && ls.teams.home && ls.teams.home.runs, ls.teams && ls.teams.away && ls.teams.away.runs].join('|');
+  const c = MLB_PBP[pk];
+  let pbp;
+  if (c && c.key === key && Date.now() - c.t < 45000) pbp = c.v;
+  else { pbp = await getJSON(`${MLB_API}v1/game/${pk}/playByPlay`, 5000); MLB_PBP[pk] = {key, t: Date.now(), v: pbp}; }
+  return {pk, ls, plays: pbp.allPlays || []};
+}
+const pitchesOf = pl => ((pl && pl.playEvents) || []).filter(e => e.isPitch);
+const pitchCol = e => { const d = e.details || {}; return d.isInPlay ? 'var(--blue)' : d.isStrike ? 'var(--red)' : 'var(--green)'; };
+const pType = e => (e.details && e.details.type && (e.details.type.description || e.details.type.code)) || 'Pitch';
+const pVelo = e => e.pitchData && e.pitchData.startSpeed ? (+e.pitchData.startSpeed).toFixed(1) : '';
+function ordinalN(k){ return k + ((k % 100 >= 11 && k % 100 <= 13) ? 'th' : ({1: 'st', 2: 'nd', 3: 'rd'}[k % 10] || 'th')); }
+/* Strike zone from the catcher's view, in feet: x is inches off the
+   middle of the plate (/12), z is height. Zone height is the batter's. */
+function zoneSvg(pitches){
+  const S = 74, W = 280, H = 262, TOP = 4.4, cx = W / 2;
+  const X = x => cx + x * S, Y = z => (TOP - z) * S;
+  const zs = pitches.map(e => e.pitchData || {}).filter(d => d.strikeZoneTop && d.strikeZoneBottom);
+  const top = zs.length ? zs.reduce((a, d) => a + d.strikeZoneTop, 0) / zs.length : 3.4;
+  const bot = zs.length ? zs.reduce((a, d) => a + d.strikeZoneBottom, 0) / zs.length : 1.6;
+  const hw = 17 / 24;
+  let g = `<rect x="${X(-hw)}" y="${Y(top)}" width="${2 * hw * S}" height="${(top - bot) * S}" fill="var(--soft)" stroke="var(--ink)" stroke-width="2"/>`;
+  for (let i = 1; i < 3; i++){
+    const xx = X(-hw + 2 * hw * i / 3), yy = Y(top - (top - bot) * i / 3);
+    g += `<line x1="${xx}" y1="${Y(top)}" x2="${xx}" y2="${Y(bot)}" stroke="var(--line)" stroke-width="1.5"/><line x1="${X(-hw)}" y1="${yy}" x2="${X(hw)}" y2="${yy}" stroke="var(--line)" stroke-width="1.5"/>`;
+  }
+  g += `<polygon points="${X(-hw)},${Y(1.05)} ${X(hw)},${Y(1.05)} ${X(hw)},${Y(.97)} ${X(0)},${Y(.88)} ${X(-hw)},${Y(.97)}" fill="var(--card)" stroke="var(--silver)" stroke-width="2"/>`;
+  pitches.forEach((e, i) => {
+    const c = e.pitchData && e.pitchData.coordinates;
+    if (!c || c.pX === undefined || c.pZ === undefined) return;
+    const px = Math.max(-1.7, Math.min(1.7, c.pX)), pz = Math.max(0.85, Math.min(TOP - .17, c.pZ));
+    const last = i === pitches.length - 1;
+    g += `${last ? `<circle cx="${X(px)}" cy="${Y(pz)}" r="16" fill="none" stroke="${pitchCol(e)}" stroke-width="2" opacity=".45"/>` : ''}<circle cx="${X(px)}" cy="${Y(pz)}" r="11.5" fill="${pitchCol(e)}" stroke="var(--card)" stroke-width="1.5"/><text x="${X(px)}" y="${Y(pz) + 4.5}" text-anchor="middle" font-family="Geist,system-ui,sans-serif" font-weight="800" font-size="12.5" fill="#fff">${i + 1}</text>`;
+  });
+  return `<svg class="zone" viewBox="0 0 ${W} ${H}" role="img" aria-label="Strike zone, catcher's view">${g}</svg>`;
+}
+function diamondSvg(on, outs){
+  const base = (x, y, f) => `<rect x="${x - 7}" y="${y - 7}" width="14" height="14" transform="rotate(45 ${x} ${y})" fill="${f ? 'var(--blue)' : 'var(--card)'}" stroke="${f ? 'var(--blue)' : 'var(--silver)'}" stroke-width="2"/>`;
+  const dots = [0, 1, 2].map(i => `<circle cx="${18 + i * 14}" cy="56" r="4.5" fill="${i < outs ? 'var(--ink)' : 'none'}" stroke="${i < outs ? 'var(--ink)' : 'var(--silver)'}" stroke-width="1.5"/>`).join('');
+  return `<svg width="68" height="64" viewBox="0 0 68 64" aria-label="Runners and outs">${base(32, 12, on.second)}${base(52, 30, on.first)}${base(12, 30, on.third)}${dots}</svg>`;
+}
+/* Ball in play, on a simple field. Gameday's hit coordinates put home
+   plate near (125, 198) at about 2.5 feet per unit. */
+function spraySvg(hd){
+  const s = 0.32, hx = 75, hy = 112;
+  const P = (ft, deg) => [hx + ft * s * Math.sin(deg * Math.PI / 180), hy - ft * s * Math.cos(deg * Math.PI / 180)];
+  const [lx, ly] = P(330, -45), [rx, ry] = P(330, 45);
+  const inf = [P(90, 45), P(127, 0), P(90, -45)];
+  let g = `<path d="M${hx},${hy} L${lx},${ly} Q${hx},${hy - 520 * s} ${rx},${ry} Z" fill="var(--green-bg)" stroke="var(--silver)" stroke-width="1.5"/>`;
+  g += `<path d="M${hx},${hy} L${inf[0]} L${inf[1]} L${inf[2]} Z" fill="none" stroke="var(--silver)" stroke-width="1.2"/>`;
+  const c = hd && hd.coordinates;
+  if (c && c.coordX !== undefined && c.coordY !== undefined){
+    const dx = (c.coordX - 125.42) * 2.5, dy = (198.27 - c.coordY) * 2.5;
+    const x = hx + dx * s, y = hy - dy * s;
+    g += `<line x1="${hx}" y1="${hy}" x2="${x}" y2="${y}" stroke="var(--blue)" stroke-width="1.5" stroke-dasharray="3 3"/><circle cx="${x}" cy="${y}" r="5.5" fill="var(--blue)" stroke="var(--card)" stroke-width="1.5"/>`;
+  }
+  return `<svg viewBox="0 0 150 118" width="150" height="118" aria-label="Where the ball went">${g}</svg>`;
+}
+const HIT_EV = ['single', 'double', 'triple', 'home_run'];
+const NO_AB = ['walk', 'intent_walk', 'hit_by_pitch', 'sac_fly', 'sac_bunt', 'catcher_interf', 'sac_fly_double_play', 'sac_bunt_double_play'];
+function batterLine(plays, id){
+  let h = 0, ab = 0; const xb = [];
+  plays.forEach(pl => {
+    if (!pl.about || !pl.about.isComplete || !pl.matchup || !pl.matchup.batter || pl.matchup.batter.id !== id) return;
+    const et = pl.result && pl.result.eventType;
+    if (!et || NO_AB.includes(et)) { if (et === 'walk' || et === 'intent_walk') xb.push('BB'); return; }
+    ab++;
+    if (HIT_EV.includes(et)){ h++; if (et !== 'single') xb.push({double: '2B', triple: '3B', home_run: 'HR'}[et]); }
+  });
+  return `${h}-${ab}${xb.length ? ', ' + xb.join(', ') : ''}`;
+}
+function pitcherStats(plays, id){
+  const by = {}; let n = 0, k = 0;
+  plays.forEach(pl => {
+    if (!pl.matchup || !pl.matchup.pitcher || pl.matchup.pitcher.id !== id) return;
+    pitchesOf(pl).forEach(e => {
+      n++; if (e.details && (e.details.isStrike || e.details.isInPlay)) k++;
+      const t = pType(e); const b = by[t] || (by[t] = {n: 0, v: 0, vn: 0});
+      b.n++; if (e.pitchData && e.pitchData.startSpeed){ b.v += +e.pitchData.startSpeed; b.vn++; }
+    });
+  });
+  return {n, k, mix: Object.entries(by).map(([t, b]) => ({t, n: b.n, v: b.vn ? b.v / b.vn : null})).sort((a, b) => b.n - a.n)};
+}
+function halfName(pl){ const a = pl.about || {}; return (a.isTopInning ? 'Top ' : 'Bottom ') + ordinalN(a.inning || 1); }
+function pitchesTab(d, ev, p){
+  if (!d.mlb) return `<div class="sub">MLB's pitch feed isn't reachable right now${d.mlbErr ? ' (' + esc(d.mlbErr) + ')' : ''}. Here's ESPN's play-by-play instead.</div>${playsTab(d.s, ev)}`;
+  const {ls, plays} = d.mlb;
+  if (!plays.length) return '<div class="empty">Pitches show up here from the first pitch.</div>';
+  const live = ev.state === 'in';
+  const curIdx = plays.length - 1;
+  const sel = p.ab !== undefined && plays[p.ab] ? p.ab : curIdx;
+  const pl = plays[sel];
+  const pit = pitchesOf(pl);
+  const mu = pl.matchup || {};
+  let html = '';
+  /* Situation */
+  if (live && sel === curIdx){
+    const off = ls.offense || {};
+    const on = {first: !!off.first, second: !!off.second, third: !!off.third};
+    html += `<div class="mlbsit">${diamondSvg(on, ls.outs || 0)}<div class="cnt"><b>${esc(ls.balls ?? 0)}-${esc(ls.strikes ?? 0)}</b><span>${esc(ls.outs ?? 0)} out${ls.outs === 1 ? '' : 's'}</span></div><div class="inn">${ls.isTopInning ? '▲' : '▼'} ${esc(ls.currentInningOrdinal || '')}</div></div>`;
+  } else if (p.ab !== undefined){
+    html += `<button class="chip on" style="align-self:flex-start" data-h="${h(() => setP({ab: undefined}))}">${live ? liveDot + 'Back to live' : '‹ Back to last at-bat'}</button>`;
+  }
+  /* Matchup */
+  const bat = mu.batter || {}, pch = mu.pitcher || {};
+  const ps = pitcherStats(plays, pch.id);
+  html += `<div class="mu">
+    <div><span class="r">AB</span><span class="n">${esc(bat.fullName || '')} <small class="sub">${esc((mu.batSide && mu.batSide.code) || '')}</small></span><span class="x">${esc(batterLine(plays, bat.id))} today</span></div>
+    <div><span class="r">P</span><span class="n">${esc(pch.fullName || '')} <small class="sub">${esc((mu.pitchHand && mu.pitchHand.code) || '')}HP</small></span><span class="x">${ps.n} pitches</span></div>
+  </div>`;
+  if (pl.about && pl.about.isComplete && pl.result && pl.result.description) html += `<div style="font:600 16px/1.35 var(--body)"><span class="lbl" style="display:block">${esc(halfName(pl))} · ${esc(pl.result.event || '')}</span>${esc(pl.result.description)}</div>`;
+  /* Zone + pitch list */
+  html += `<div style="display:flex;flex-direction:column;gap:6px">${zoneSvg(pit)}<div class="legend"><span><i style="background:var(--green)"></i>Ball</span><span><i style="background:var(--red)"></i>Strike</span><span><i style="background:var(--blue)"></i>In play</span><span>Catcher's view</span></div></div>`;
+  if (!pit.length){
+    html += '<div class="empty" style="padding:10px">Waiting for the first pitch of this at-bat.</div>';
+    const prev = plays[sel - 1];
+    if (prev && prev.result && prev.result.description) html += `<div class="sub"><b>Last at-bat:</b> ${esc(prev.result.description)}</div>`;
+  } else {
+    html += '<div>' + pit.map((e, i) => {
+      const dd = e.details || {}, pd = e.pitchData || {};
+      const spin = pd.breaks && pd.breaks.spinRate ? Number(pd.breaks.spinRate).toLocaleString() + ' rpm' : '';
+      const cnt = e.count ? `${e.count.balls}-${e.count.strikes}` : '';
+      return {i, html: `<div class="prow"><span class="pn" style="background:${pitchCol(e)}">${i + 1}</span><span class="main" style="display:flex;flex-direction:column;min-width:0"><span style="font:700 16px var(--body)">${esc(pType(e))}${pVelo(e) ? ' · ' + pVelo(e) + ' mph' : ''}</span><span class="sub">${esc(dd.description || '')}${spin ? ' · ' + spin : ''}</span></span><span class="cn">${dd.isInPlay ? '' : esc(cnt)}</span></div>`};
+    }).reverse().map(x => x.html).join('') + '</div>';
+  }
+  /* Ball in play */
+  const inPlay = pit.find(e => e.details && e.details.isInPlay && e.hitData);
+  if (inPlay){
+    const hd = inPlay.hitData;
+    const bits = [hd.launchSpeed ? (+hd.launchSpeed).toFixed(1) + ' mph' : '', hd.launchAngle !== undefined ? Math.round(hd.launchAngle) + '°' : '', hd.totalDistance ? Math.round(hd.totalDistance) + ' ft' : ''].filter(Boolean);
+    html += `<div class="hitc"><div><span class="lbl">Ball in play</span><b>${esc(bits.join(' · ') || 'In play')}</b><span class="sub">${esc(String(hd.trajectory || '').replace(/_/g, ' '))}${hd.hardness ? ' · ' + esc(hd.hardness) + ' contact' : ''}</span></div>${spraySvg(hd)}</div>`;
+  }
+  /* Pitcher's mix */
+  if (ps.n){
+    html += `<div><div class="lbl" style="margin-bottom:6px">${esc(pch.fullName || 'Pitcher')} today · ${ps.n} pitches · ${Math.round(ps.k / ps.n * 100)}% strikes</div><div class="tbl">${ps.mix.map(m => `<div class="tr c4"><span>${esc(m.t)}</span><span style="color:var(--muted)">${m.n} · ${Math.round(m.n / ps.n * 100)}%</span><span>${m.v ? m.v.toFixed(1) + ' mph' : '—'}</span></div>`).join('')}</div></div>`;
+  }
+  /* Every at-bat, newest first */
+  let last = null;
+  html += '<div><div class="lbl" style="margin-bottom:2px">All at-bats</div>' + plays.map((x, i) => ({x, i})).reverse().map(({x, i}) => {
+    const hn = halfName(x), hdr = hn !== last ? `<div class="lbl ghdr">${esc(hn)}</div>` : '';
+    last = hn;
+    const m = x.matchup || {}, done = x.about && x.about.isComplete;
+    const sc = x.about && x.about.isScoringPlay;
+    return `${hdr}<button class="lrow" style="align-items:flex-start;${i === sel ? 'background:var(--soft);border-radius:10px;padding-left:8px;padding-right:8px;' : ''}${sc ? 'box-shadow:inset 3px 0 0 var(--green);padding-left:10px;' : ''}" data-h="${h(() => { setP({ab: i === curIdx ? undefined : i}); $('#view').scrollTop = 0; })}"><span class="main" style="flex:1"><span class="lbl">${esc((m.batter && m.batter.fullName) || '')} vs ${esc((m.pitcher && m.pitcher.fullName || '').split(' ').slice(-1)[0])} · ${pitchesOf(x).length} P</span><span style="font:500 15px/1.35 var(--body)">${done ? esc((x.result && x.result.description) || '') : '<b>At bat now</b>'}</span></span>${done && x.result && x.result.event ? `<span class="tag ${sc ? 'cov' : 'even'}">${esc(x.result.event)}</span>` : ''}</button>`;
+  }).join('') + '</div>';
+  return html;
+}
+
 /* ---------- GAME ---------- */
 const BET_SUBS = lg => ['lines'].concat(lg === 'nfl' || lg === 'nhl' ? ['props'] : [], lg === 'nfl' || lg === 'cfb' ? ['model'] : []);
 function betSub(p, lg){
@@ -1247,6 +1438,9 @@ VIEWS.game = {
     if ((p.lg === 'nfl' || p.lg === 'cfb') && t === 'bet' && sub !== 'props'){
       try { const mf = await modelFile(p.lg); out.model = modelFor(mf, ev); out.ats = atsRecord(mf, p.lg); }
       catch (e){ out.modelErr = e.message; }
+    }
+    if (p.lg === 'mlb' && t === 'pitches'){
+      try { out.mlb = await mlbData(ev); } catch (e){ out.mlbErr = e.message; }
     }
     if (p.lg === 'nhl' && t === 'bet' && sub === 'props'){
       try { const bd = await ssBoard(); out.ss = bd; out.ssGame = ssGameFor(bd, ev); }
@@ -1286,6 +1480,7 @@ VIEWS.game = {
     if (t === 'box') body = boxTab(s, ev, comp, p, avail);
     if (t === 'scoring') body = scoringTab(s, ev);
     if (t === 'plays') body = playsTab(s, ev);
+    if (t === 'pitches') body = pitchesTab(d, ev, p);
     if (t === 'news') body = gameNewsTab(s, ev, p, avail);
     let strip = '';
     if (t !== 'bet' && bets.length){
@@ -1305,12 +1500,14 @@ VIEWS.game = {
   }
 };
 function gameTabs(ev){
-  return ev.state === 'pre' ? [['bet', 'BET'], ['news', 'NEWS']] : [['scoring', 'SCORING'], ['box', 'BOX'], ['plays', 'PLAYS'], ['bet', 'BET'], ['news', 'NEWS']];
+  if (ev.state === 'pre') return [['bet', 'BET'], ['news', 'NEWS']];
+  if (ev.lg === 'mlb') return [['pitches', 'PITCHES'], ['scoring', 'SCORING'], ['box', 'BOX'], ['bet', 'BET'], ['news', 'NEWS']];
+  return [['scoring', 'SCORING'], ['box', 'BOX'], ['plays', 'PLAYS'], ['bet', 'BET'], ['news', 'NEWS']];
 }
 function gameTab(p, ev){
   const ks = gameTabs(ev).map(x => x[0]);
   const want = p.tab === 'odds' || p.tab === 'props' || p.tab === 'model' ? 'bet' : p.tab;
-  return ks.includes(want) ? want : (ev.state === 'pre' ? 'bet' : 'scoring');
+  return ks.includes(want) ? want : (ev.state === 'pre' ? 'bet' : ev.lg === 'mlb' ? 'pitches' : 'scoring');
 }
 /* Lines, props and your power ratings in one place, plus your bets. */
 function betTab(d, ev, p, avail, bets, tapBet){
@@ -2150,12 +2347,18 @@ setInterval(() => document.querySelectorAll('#view .upd[data-ts]').forEach(el =>
 })();
 function setDate(){ $('#todayLbl').textContent = new Date().toLocaleDateString(undefined, {weekday:'short', month:'short', day:'numeric'}).replace(',', ' ·'); }
 setDate();
+let tick = 0;
 setInterval(() => {
+  tick++;
   if (document.hidden || !$('#sheet').hidden) return;
+  const c = cur(), n = c.name;
+  /* Live pitch tracker: every 10 seconds. Everything else: every 30. */
+  const pitchLive = n === 'game' && c.p.lg === 'mlb' && (!c.p.tab || c.p.tab === 'pitches') && c.p.ab === undefined && document.querySelector('#view .mlbsit');
+  if (pitchLive){ render(true); return; }
+  if (tick % 3) return;
   setDate();
-  const n = cur().name;
   if (['tonight', 'game', 'league'].includes(n)) render(true);
-}, 30000);
+}, 10000);
 /* Re-read Call Sheet data whenever it could have changed: coming back to
    this tab or app, Safari restoring the page, or the Call Sheet saving
    while both are open (the 'storage' event fires in this tab then). */
