@@ -1,0 +1,42 @@
+name: MFL pull
+
+# Pulls your MyFantasyLeague league into data/mfl.json.
+# Every 10 minutes during NFL game windows, plus once each morning.
+# All times are UTC (Eastern is UTC-4 during the season).
+on:
+  schedule:
+    - cron: "*/10 13-23 * * 0"   # Sunday 9am-8pm ET (London games through late afternoon)
+    - cron: "*/10 0-4 * * 1"     # Sunday night 8pm-1am ET
+    - cron: "*/10 0-4 * * 2"     # Monday night
+    - cron: "*/10 0-4 * * 5"     # Thursday night
+    - cron: "17 11 * * *"        # every morning
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: mfl-pull
+  cancel-in-progress: false
+
+jobs:
+  pull:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Pull league
+        env:
+          MFL_HOST: www45.myfantasyleague.com
+          MFL_YEAR: "2026"
+          MFL_LEAGUE: "30258"
+          MFL_APIKEY: ${{ secrets.MFL_APIKEY }}
+        run: python3 mfl_pull.py data/mfl.json
+      - name: Save if changed
+        run: |
+          git config user.name "sportsmf-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add data/mfl.json
+          git diff --cached --quiet || (git commit -m "MFL update" && git push)
