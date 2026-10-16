@@ -312,7 +312,7 @@ const TEAM_LGS = LEAGUES.filter(l => l.type === 'team');
 const COLLEGE_LGS = LEAGUES.filter(l => l.college);
 const BOOKS = ['DraftKings','FanDuel','Bet365','BetMGM','Fanatics','Hard Rock','theScore','BetRivers','betPARX','Caesars','ESPN BET'];
 const BOOK_MAP = {draftkings:'DraftKings', fanduel:'FanDuel', betmgm:'BetMGM', caesars:'Caesars', espnbet:'ESPN BET', bet365:'Bet365', fanatics:'Fanatics', hardrock:'Hard Rock', hardrockbet:'Hard Rock', betrivers:'BetRivers', thescore:'theScore', betparx:'betPARX'};
-const BUILD = '2026-10-15 v15';
+const BUILD = '2026-10-15 v16';
 /* The Call Sheet lives on the same site (jibboo72.github.io), so its saved
    data and its published odds file are both readable from here. */
 const CS_KEY = 'nfl-call-sheet-v3';
@@ -351,9 +351,10 @@ const S = {
   lastBook: store.get('lastBook', 'DraftKings'),
   showCS: store.get('showCS', true),
   theme: store.get('theme', 'light'),
-  mfl: store.get('mfl', {host: 'www45.myfantasyleague.com', year: '2026', league: '30258', franchise: '', apikey: ''})
+  mfl: store.get('mfl', {host: 'www45.myfantasyleague.com', year: '2026', league: '30258', franchise: '', apikey: ''}),
+  ghToken: store.get('ghToken', '')
 };
-function save(){ store.set('favs', S.favs); store.set('bets', S.bets); store.set('unit', S.unit); store.set('lastBook', S.lastBook); store.set('showCS', S.showCS); store.set('theme', S.theme); store.set('mfl', S.mfl); }
+function save(){ store.set('favs', S.favs); store.set('bets', S.bets); store.set('unit', S.unit); store.set('lastBook', S.lastBook); store.set('showCS', S.showCS); store.set('theme', S.theme); store.set('mfl', S.mfl); store.set('ghToken', S.ghToken); }
 
 /* Call Sheet bets, read-only. Paper bets are skipped, same as the Call
    Sheet's own bankroll. Stakes there are dollars, so they're converted to
@@ -1098,9 +1099,9 @@ function nhlPropsTab(d, ev, p, room){
    reads that file from its own site. */
 const arr = x => Array.isArray(x) ? x : (x ? [x] : []);
 const mflOn = () => !!(S.mfl && S.mfl.franchise);
-async function mflSnapshot(){
-  const url = new URL('data/mfl.json', location.href).href + '?t=' + Math.floor(Date.now() / 60000);
-  const d = await getJSON(url, 60000);
+async function mflSnapshot(fresh){
+  const url = new URL('data/mfl.json', location.href).href + '?t=' + (fresh ? Date.now() : Math.floor(Date.now() / 60000));
+  const d = await getJSON(url, fresh ? 0 : 60000);
   const fr = {};
   arr(d.league && d.league.franchises).forEach(f => { fr[f.id] = f; });
   return {name: d.league && d.league.name, fr, franchises: arr(d.league && d.league.franchises), week: d.week, matchups: arr(d.matchups).map(arr), players: d.players || {}, stand: arr(d.standings), generated: d.generated};
@@ -1122,6 +1123,67 @@ function fantasyCard(snap){
   const row = (f, mine) => `<div class="tm"><span class="nm" style="${mine ? 'color:var(--blue)' : ''}">${esc(nm(f.id))}</span><span class="sc ${!mine && b < a ? 'lose' : mine && a < b ? 'lose' : ''}">${fmtPts(f.score)}</span></div>`;
   return `<button class="card" data-h="${h(() => go('fantasy', {tab: 'mine'}))}"><div class="meta"><span>FANTASY · WK ${esc(snap.week || '')}</span><span class="r">${left ? (mm.me.playersCurrentlyPlaying > 0 ? '<span class="livec">' + liveDot + esc(mm.me.playersCurrentlyPlaying) + ' playing</span>' : esc(left) + ' to play') : 'Done'}</span></div>${row(mm.me, true)}${row(mm.opp, false)}<div class="foot"><span class="ln">${a >= b ? 'Up' : 'Down'} ${Math.abs(a - b).toFixed(1)} · ${esc(snap.name || 'MFL')}</span><span class="tag ${a >= b ? 'bet' : 'my'}">MY TEAM</span></div></button>`;
 }
+/* Refresh now: starts the "MFL pull" job on GitHub right away instead of
+   waiting for its schedule. Uses a GitHub key saved only on this phone,
+   made to do one thing: run Actions in the sportsmf repo. It never goes
+   anywhere but api.github.com and is left out of backups. */
+const GH = {repo: 'Jibboo72/sportsmf', wf: 'mfl.yml', ref: 'main'};
+let mflRef = {state: '', msg: ''};
+const wait = ms => new Promise(r => setTimeout(r, ms));
+function ghApi(path, opt){
+  return fetch('https://api.github.com/repos/' + GH.repo + path, Object.assign({cache: 'no-store', headers: {Authorization: 'Bearer ' + S.ghToken, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28'}}, opt || {}));
+}
+function setRef(state, msg){
+  mflRef = {state, msg};
+  if (cur().name === 'fantasy') render(true);
+}
+async function refreshMFL(){
+  if (!S.ghToken){ go('settings'); return; }
+  if (mflRef.state === 'busy') return;
+  let before = null;
+  try { before = (await mflSnapshot(true)).generated; } catch (e){}
+  const t0 = Date.now();
+  setRef('busy', 'Starting the update on GitHub…');
+  let r;
+  try { r = await ghApi(`/actions/workflows/${GH.wf}/dispatches`, {method: 'POST', body: JSON.stringify({ref: GH.ref})}); }
+  catch (e){ return setRef('err', "Couldn't reach GitHub. Check your connection."); }
+  if (r.status === 401) return setRef('err', 'GitHub didn\'t accept your key. It may have expired. Make a new one in Settings.');
+  if (r.status === 403 || r.status === 404) return setRef('err', 'Your key can\'t run this job. It needs the sportsmf repo with Actions: Read and write.');
+  if (r.status !== 204) return setRef('err', 'GitHub answered ' + r.status + '. Try again in a minute.');
+  setRef('busy', 'Running on GitHub… usually about a minute');
+  for (let i = 0; i < 24; i++){
+    await wait(10000);
+    try {
+      const rr = await ghApi(`/actions/workflows/${GH.wf}/runs?event=workflow_dispatch&per_page=1`);
+      if (rr.ok){
+        const run = ((await rr.json()).workflow_runs || [])[0];
+        if (run && new Date(run.created_at).getTime() >= t0 - 60000 && run.status === 'completed'){
+          if (run.conclusion !== 'success') return setRef('err', 'The update failed on GitHub. Open Actions › MFL pull to see why.');
+          if (mflRef.msg.indexOf('Saved') !== 0) setRef('busy', 'Saved. Waiting for your site to publish it…');
+        }
+      }
+    } catch (e){}
+    try {
+      const snap = await mflSnapshot(true);
+      if (snap.generated && snap.generated !== before){ mem.forEach((v, k) => { if (k.includes('data/mfl.json')) mem.delete(k); }); return setRef('ok', 'Updated just now'); }
+    } catch (e){}
+  }
+  setRef('err', 'Still waiting on GitHub. Pull down in a minute to check.');
+}
+function ghKeySheet(){
+  openSheet(`<h2>Make a refresh key</h2>
+    <p class="sub" style="font-size:16px">Takes about two minutes on GitHub. The key can only start jobs in your sportsmf repo.</p>
+    <ol style="margin:0;padding-left:22px;font:500 16px/1.5 var(--body);display:flex;flex-direction:column;gap:6px">
+      <li>Open <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">GitHub › New fine-grained token</a> and sign in.</li>
+      <li>Name it <b>SportsMF refresh</b>. Pick an expiration (a year is fine).</li>
+      <li>Repository access: <b>Only select repositories</b> › <b>sportsmf</b>.</li>
+      <li>Permissions › Repository permissions › <b>Actions</b>: <b>Read and write</b>. Leave everything else alone.</li>
+      <li>Tap <b>Generate token</b>, copy it, and paste it into Settings here.</li>
+    </ol>
+    <p class="sub">It's saved only on this phone and isn't included in backups.</p>
+    <button class="ghost" id="closeSheetBtn">Close</button>`);
+  $('#closeSheetBtn').onclick = closeSheet;
+}
 const FANTASY_VIEW = {
   async load(p){
     if (!mflOn()) return {setup: true};
@@ -1132,7 +1194,10 @@ const FANTASY_VIEW = {
     const t = p.tab || 'mine';
     const nm = id => (d.fr[id] && d.fr[id].name) || 'Team ' + id;
     const seg = (k, l) => `<button class="${t === k ? 'on' : ''}" data-h="${h(() => setP({tab: k, page: 0, side: 'me'}))}">${l}</button>`;
-    let html = `<div class="row"><h1 class="title">FANTASY</h1><span class="lbl">WK ${esc(d.week || '')} · ${esc(ago(d.generated))}</span></div>
+    const busy = mflRef.state === 'busy';
+    const refBtn = `<button class="chip" ${busy ? 'disabled style="opacity:.6"' : ''} data-h="${h(refreshMFL)}">${busy ? 'Refreshing…' : S.ghToken ? '↻ Refresh' : '↻ Set up refresh'}</button>`;
+    let html = `<div class="row"><h1 class="title">FANTASY</h1>${refBtn}</div>
+      <div class="upd" style="margin-top:2px;${mflRef.state === 'err' ? 'color:var(--red);font-weight:600' : mflRef.state === 'ok' ? 'color:var(--green-t);font-weight:600' : ''}">Week ${esc(d.week || '')} · data from ${esc(ago(d.generated))}${mflRef.msg ? ' · ' + esc(mflRef.msg) : ''}</div>
       <div class="seg" style="margin-top:6px">${seg('mine', 'MATCHUP')}${seg('all', 'ALL GAMES')}${seg('stand', 'STANDINGS')}</div>`;
     if (t === 'mine'){
       const mm = myMatchup(d);
@@ -2286,6 +2351,11 @@ VIEWS.settings = {
     return `<h1 class="title">SETTINGS</h1>
             <div class="field" style="margin-top:12px"><span class="lbl">Appearance</span><div class="chips">${[['light','Light'],['dark','Dark'],['auto','Match phone']].map(([k, l]) => `<button class="chip ${S.theme === k ? 'on' : ''}" data-h="${h(() => { S.theme = k; save(); applyTheme(); render(true); })}">${l}</button>`).join('')}</div></div>
       <button class="ghost" style="margin-top:14px" data-h="${h(() => go('mflsetup'))}">Fantasy league (MFL) ›</button>
+      <div class="field" style="margin-top:14px"><label class="lbl" for="ghIn">Fantasy refresh key (GitHub)</label>
+        <div class="sub">${S.ghToken ? 'Saved on this phone. The Refresh button on Fantasy uses it.' : 'Lets the Refresh button on Fantasy update your league right away.'}</div>
+        <div class="row"><input id="ghIn" type="password" autocomplete="off" placeholder="${S.ghToken ? '•••••••• saved' : 'Paste key (github_pat_…)'}"><button class="chip on" style="height:48px" data-h="${h(() => { const v = $('#ghIn').value.trim(); if (!v) return; S.ghToken = v; save(); alert('Saved.'); render(); })}">Save</button></div>
+        <div class="row" style="justify-content:flex-start;gap:18px"><button class="linkbtn" data-h="${h(ghKeySheet)}">How to make one ›</button>${S.ghToken ? `<button class="linkbtn" style="color:var(--red)" data-h="${h(() => { if (confirm('Remove the refresh key from this phone?')){ S.ghToken = ''; save(); render(); } })}">Remove key</button>` : ''}</div>
+      </div>
       <div class="field" style="margin-top:14px"><label class="lbl" for="unitIn">Unit size ($)</label><div class="row"><input id="unitIn" inputmode="decimal" value="${esc(S.unit)}"><button class="chip on" style="height:48px" data-h="${h(() => { const v = parseFloat($('#unitIn').value); if (v > 0){ S.unit = v; save(); back(); } })}">Save</button></div></div>
       <div class="field" style="margin-top:18px"><span class="lbl">Backup</span><div class="sub">Copy this to move your teams and bets to another phone.</div>
         <button class="ghost" data-h="${h(() => { const t = JSON.stringify({favs: S.favs, bets: S.bets, unit: S.unit}); (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => alert('Copied.'), () => { $('#ioWrap').hidden = false; $('#ioBox').value = t; }); })}">Copy backup</button>
