@@ -364,7 +364,7 @@ const TEAM_LGS = LEAGUES.filter(l => l.type === 'team');
 const COLLEGE_LGS = LEAGUES.filter(l => l.college);
 const BOOKS = ['DraftKings','FanDuel','Bet365','BetMGM','Fanatics','Hard Rock','theScore','BetRivers','betPARX','Caesars','ESPN BET'];
 const BOOK_MAP = {draftkings:'DraftKings', fanduel:'FanDuel', betmgm:'BetMGM', caesars:'Caesars', espnbet:'ESPN BET', bet365:'Bet365', fanatics:'Fanatics', hardrock:'Hard Rock', hardrockbet:'Hard Rock', betrivers:'BetRivers', thescore:'theScore', betparx:'betPARX'};
-const BUILD = '2026-10-17 v27';
+const BUILD = '2026-10-17 v28';
 /* The Call Sheet lives on the same site (jibboo72.github.io), so its saved
    data and its published odds file are both readable from here. */
 const CS_KEY = 'nfl-call-sheet-v3';
@@ -703,12 +703,32 @@ function teamMentions(str, t){
     const m = new RegExp('(^|[^a-z])' + reEsc(String(c).toLowerCase()) + '(?=[^a-z]|$)').exec(low);
     if (m && (at < 0 || m.index < at)) at = m.index + m[1].length;
   });
-  return at;
+  if (at >= 0) return at;
+  /* Shorthand like "Miss St" or "N Dakota St": each typed word is the start
+     of the matching word in the team's name. */
+  const words = low.replace(/[^a-z0-9 ]/g, ' ').split(/\s+/).filter(Boolean);
+  for (const c of teamNames(t)){
+    const cw = c.split(' ');
+    if (cw.length < 1) continue;
+    for (let i = 0; i + cw.length <= words.length; i++){
+      const okk = cw.every((w, j) => { const tw = normTeam(words[i + j]) || words[i + j]; return tw === w || (tw.length >= 3 && w.startsWith(tw)); });
+      if (okk) return low.indexOf(words[i]);
+    }
+  }
+  return -1;
 }
 function parsePick(desc, market, ev){
   const str = String(desc || '').replace(/−/g, '-').trim();
   if (!str || market === 'td' || market === 'other') return null;
   let m = str.match(/(?:^|[^a-z])(o|over|u|under)\s*(\d+(?:\.\d+)?)/i);
+  /* Team total ("MSST TT o24.5", "Miss St team total under 27"): one team's
+     points against the number, not the game's. */
+  if (m && /(^|[^a-z])(tt|team\s*total|team\s*tot|team\s*pts)(?=[^a-z]|$)/i.test(str)){
+    const hi0 = teamMentions(str, ev.home), ai0 = teamMentions(str, ev.away);
+    if (hi0 < 0 && ai0 < 0) return null;
+    const team = hi0 >= 0 && (ai0 < 0 || hi0 <= ai0) ? 'home' : 'away';
+    return {type: 'tt', team, side: /^o/i.test(m[1]) ? 'over' : 'under', line: +m[2]};
+  }
   if (m && market !== 'ml') return {type: 'total', side: /^o/i.test(m[1]) ? 'over' : 'under', line: +m[2]};
   if (market === 'total') return null;
   const hi = teamMentions(str, ev.home), ai = teamMentions(str, ev.away);
@@ -742,6 +762,14 @@ function liveRead(b, ev){
     const res = evalBet(r, ev);
     if (!res) return null;
     return {cls: res === 'won' ? 'up' : res === 'lost' ? 'down' : 'even', text: (res === 'won' ? 'Won' : res === 'lost' ? 'Lost' : 'Push') + (b.cs ? ' · grade in Call Sheet' : '')};
+  }
+  if (r.type === 'tt'){
+    const pts = r.team === 'home' ? hs : as, d = pts - (+r.line);
+    const who = (r.team === 'home' ? ev.home : ev.away);
+    const nm = who.abbr || who.short;
+    if (d === 0) return {cls: 'even', text: `${nm} on the number`};
+    if (r.side === 'over') return d > 0 ? {cls: 'up', text: `${nm} ${pts} · over by ${n1(d)}`} : {cls: 'down', text: `${nm} ${pts} · needs ${Math.ceil(-d)} more`};
+    return d < 0 ? {cls: 'up', text: `${nm} ${pts} · under by ${n1(d)}`} : {cls: 'down', text: `${nm} ${pts} · over by ${n1(d)}`};
   }
   if (r.type === 'total'){
     const d = hs + as - (+r.line);
@@ -854,6 +882,7 @@ function evalBet(b, ev){
   const hs = parseFloat(ev.home.score), as = parseFloat(ev.away.score);
   if (isNaN(hs) || isNaN(as)) return null;
   if (b.type === 'total'){ const d = hs + as - (+b.line); if (d === 0) return 'push'; return (d > 0) === (b.side === 'over') ? 'won' : 'lost'; }
+  if (b.type === 'tt'){ const d = (b.team === 'home' ? hs : as) - (+b.line); if (d === 0) return 'push'; return (d > 0) === (b.side === 'over') ? 'won' : 'lost'; }
   const mine = b.side === 'home' ? hs : as, opp = b.side === 'home' ? as : hs;
   if (b.type === 'spread'){ const m = mine - opp + (+b.line); return m > 0 ? 'won' : m < 0 ? 'lost' : 'push'; }
   if (b.type === 'ml') return mine > opp ? 'won' : mine < opp ? 'lost' : 'push';
