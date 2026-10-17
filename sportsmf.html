@@ -149,6 +149,20 @@ button.lb{width:100%;border-left:0;border-right:0;border-top:0;background:none;t
 .ordrow .tg.on{background:var(--blue);border-color:var(--blue);color:#fff}
 .demo-pill{display:inline-block;margin-left:8px;padding:2px 7px;border-radius:6px;background:var(--red);color:#fff;font:800 12px/1.3 var(--body);letter-spacing:1px;vertical-align:4px}
 .demo-note{background:var(--soft);border:1.5px dashed var(--silver);border-radius:12px;padding:8px 12px;font:600 13px/1.4 var(--body);color:var(--muted);margin-bottom:8px}
+.fieldsvg{width:100%;display:block;border-radius:10px}
+.fsit{display:grid;grid-template-columns:1fr auto;gap:6px 10px;align-items:center;border:1.5px solid var(--line);border-radius:14px;padding:10px 14px}
+.fsit .dd{font:900 30px/1 var(--disp);letter-spacing:.3px}
+.fsit .at{font:600 15px var(--body);color:var(--muted)}
+.fsit .to{display:flex;flex-direction:column;align-items:flex-end;gap:5px;font:700 12px var(--body);color:var(--muted)}
+.fsit .to i{display:inline-block;width:12px;height:5px;border-radius:2px;background:var(--silver);margin-left:3px}
+.fsit .to i.on{background:var(--ink)}
+.rz{display:inline-block;margin-left:8px;padding:1px 6px;border-radius:5px;background:var(--red-bg);color:var(--red);font:800 11px var(--body);vertical-align:5px;letter-spacing:.4px}
+.lastp{border-left:3px solid var(--blue);padding:4px 0 4px 10px;font:600 16px/1.35 var(--body)}
+.prow2{display:grid;grid-template-columns:54px 1fr auto;gap:10px;align-items:start;padding:8px 2px;border-bottom:1px solid var(--line)}
+.prow2 .dn{font:800 13px/1.2 var(--body);color:var(--muted);padding-top:2px}
+.prow2 .yd{font:800 17px var(--disp);font-variant-numeric:tabular-nums}
+.drow .logoimg,.drow .ph{width:24px;height:24px}
+.drow{display:grid;grid-template-columns:24px 1fr auto;gap:10px;align-items:center;padding:9px 2px;border:0;border-bottom:1px solid var(--line);width:100%;background:none;text-align:left;font:inherit;color:inherit}
 .linkbtn{border:0;background:none;color:var(--blue);font:600 16px var(--body);padding:10px 0;text-align:left;text-decoration:none;display:inline-block}
 #ptr{position:fixed;left:0;right:0;transition:height .15s;top:calc(52px + env(safe-area-inset-top));height:0;overflow:hidden;display:flex;align-items:flex-end;justify-content:center;font:600 13px var(--body);color:var(--muted);z-index:15;pointer-events:none}
 #ptr span{padding-bottom:8px}
@@ -366,7 +380,7 @@ const TEAM_LGS = LEAGUES.filter(l => l.type === 'team');
 const COLLEGE_LGS = LEAGUES.filter(l => l.college);
 const BOOKS = ['DraftKings','FanDuel','Bet365','BetMGM','Fanatics','Hard Rock','theScore','BetRivers','betPARX','Caesars','ESPN BET'];
 const BOOK_MAP = {draftkings:'DraftKings', fanduel:'FanDuel', betmgm:'BetMGM', caesars:'Caesars', espnbet:'ESPN BET', bet365:'Bet365', fanatics:'Fanatics', hardrock:'Hard Rock', hardrockbet:'Hard Rock', betrivers:'BetRivers', thescore:'theScore', betparx:'betPARX'};
-const BUILD = '2026-10-17 v31';
+const BUILD = '2026-10-17 v32';
 /* The Call Sheet lives on the same site (jibboo72.github.io), so its saved
    data and its published odds file are both readable from here. */
 const CS_KEY = 'nfl-call-sheet-v3';
@@ -1883,6 +1897,119 @@ function pitchesTab(d, ev, p){
   return html;
 }
 
+/* ---------- Football field view ----------
+   ESPN's game summary already carries every drive and play with the down,
+   distance and yards-to-goal before and after each snap. Drawn here as a
+   field (offense always driving left to right), the situation, the current
+   drive play by play, and every drive of the game, tap any to replay it. */
+function yteOf(pt, possAbbr){
+  if (!pt) return null;
+  if (pt.yardsToEndzone !== undefined && pt.yardsToEndzone !== null) return +pt.yardsToEndzone;
+  const tx = String(pt.possessionText || pt.text || '').trim();
+  if (/^50$/.test(tx) || /\b50$/.test(tx)) return 50;
+  const m = tx.match(/^([A-Za-z&.]+)\s+(\d{1,2})$/);
+  if (!m) return null;
+  return same(m[1], possAbbr) ? 100 - +m[2] : +m[2];
+}
+function fieldSvg(o){
+  /* o: {ball, togo, start, offAbbr, defAbbr, rz} in yards from the offense's own goal line */
+  const W = 336, H = 104, EZ = 28, Y = 2.8, X = yd => EZ + Math.max(0, Math.min(100, yd)) * Y;
+  let g = `<rect x="0" y="0" width="${W}" height="${H}" fill="#2E7D32"/>`;
+  for (let i = 0; i < 10; i++) if (i % 2) g += `<rect x="${X(i * 10)}" y="0" width="${10 * Y}" height="${H}" fill="#2B7430"/>`;
+  g += `<rect x="0" y="0" width="${EZ}" height="${H}" fill="#1F4E8C"/><rect x="${W - EZ}" y="0" width="${EZ}" height="${H}" fill="#8C1F2B"/>`;
+  g += `<text x="${EZ / 2}" y="${H / 2}" fill="#fff" font-family="Saira Condensed,system-ui" font-weight="800" font-size="13" text-anchor="middle" dominant-baseline="middle" transform="rotate(-90 ${EZ / 2} ${H / 2})">${esc(o.offAbbr || '')}</text>`;
+  g += `<text x="${W - EZ / 2}" y="${H / 2}" fill="#fff" font-family="Saira Condensed,system-ui" font-weight="800" font-size="13" text-anchor="middle" dominant-baseline="middle" transform="rotate(90 ${W - EZ / 2} ${H / 2})">${esc(o.defAbbr || '')}</text>`;
+  for (let i = 1; i < 10; i++){
+    const x = X(i * 10);
+    g += `<line x1="${x}" y1="0" x2="${x}" y2="${H}" stroke="rgba(255,255,255,.55)" stroke-width="1"/>`;
+    const n = i <= 5 ? i * 10 : 100 - i * 10;
+    g += `<text x="${x}" y="${H - 7}" fill="rgba(255,255,255,.8)" font-family="Saira Condensed,system-ui" font-weight="700" font-size="11" text-anchor="middle">${n}</text>`;
+  }
+  if (o.rz && o.ball !== null) g += `<rect x="${X(80)}" y="0" width="${20 * Y}" height="${H}" fill="rgba(213,10,10,.18)"/>`;
+  if (o.start !== null && o.start !== undefined && o.ball !== null){
+    const a = Math.min(o.start, o.ball), b = Math.max(o.start, o.ball);
+    g += `<rect x="${X(a)}" y="${H / 2 - 9}" width="${Math.max(2, (b - a) * Y)}" height="18" fill="rgba(255,255,255,.22)" rx="3"/>`;
+    g += `<line x1="${X(o.start)}" y1="10" x2="${X(o.start)}" y2="${H - 18}" stroke="#fff" stroke-width="1.5" stroke-dasharray="3 3"/>`;
+  }
+  if (o.ball !== null){
+    if (o.togo !== null && o.togo !== undefined && o.ball + o.togo < 100) g += `<line x1="${X(o.ball + o.togo)}" y1="4" x2="${X(o.ball + o.togo)}" y2="${H - 4}" stroke="#F5D90A" stroke-width="3"/>`;
+    g += `<line x1="${X(o.ball)}" y1="4" x2="${X(o.ball)}" y2="${H - 4}" stroke="#3A9BDC" stroke-width="3"/>`;
+    g += `<ellipse cx="${X(o.ball)}" cy="${H / 2}" rx="8" ry="5" fill="#8B4A1E" stroke="#fff" stroke-width="1.2"/><path d="M${X(o.ball) - 3} ${H / 2}h6" stroke="#fff" stroke-width="1.2"/>`;
+  }
+  g += `<path d="M${W - EZ - 18} 10 l10 5 -10 5" fill="none" stroke="rgba(255,255,255,.9)" stroke-width="2"/>`;
+  return `<svg class="fieldsvg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Field: ${esc(o.offAbbr || '')} driving">${g}</svg>`;
+}
+function playRows(plays, ev){
+  return plays.slice().reverse().map(x => {
+    const st = x.start || {};
+    const dn = st.shortDownDistanceText || (st.down ? `${st.down} & ${st.distance}` : '');
+    const ty = (x.type && (x.type.text || x.type.abbreviation)) || '';
+    const special = /kickoff|punt|field goal|extra point|timeout|penalty|end of|two-minute/i.test(ty);
+    const y = x.statYardage;
+    const yd = y === undefined || y === null || special ? '' : `<span class="yd" style="color:${y > 0 ? 'var(--green-t)' : y < 0 ? 'var(--red)' : 'var(--muted)'}">${y > 0 ? '+' : ''}${y}</span>`;
+    return `<div class="prow2" style="${x.scoringPlay ? 'background:var(--green-bg);border-radius:10px;padding-left:8px;padding-right:8px' : ''}"><span class="dn">${esc(dn.replace(/&amp;/g, '&')) || esc(ty)}</span><span style="font:500 15px/1.35 var(--body)">${esc(x.text || '')}</span>${yd}</div>`;
+  }).join('');
+}
+function driveTeam(dv, ev){
+  const t = dv && dv.team ? teamOfPlay({team: dv.team}, ev) : null;
+  return t || (dv && dv.team ? {abbr: dv.team.abbreviation, logo: (dv.team.logos && dv.team.logos[0] && dv.team.logos[0].href) || ''} : null);
+}
+function fieldTab(s, ev, p){
+  const dr = s.drives || {};
+  const prev = dr.previous || [], cur = dr.current || null;
+  const all = prev.concat(cur && !prev.some(x => x.id === cur.id) ? [cur] : []);
+  if (!all.length) return `<div class="empty">${ev.state === 'pre' ? 'The field view starts at kickoff.' : 'No drives yet.'}</div>`;
+  const live = ev.state === 'in';
+  const sel = p.drive !== undefined && all[p.drive] ? p.drive : all.length - 1;
+  const dv = all[sel], isCur = sel === all.length - 1;
+  const off = driveTeam(dv, ev);
+  const def = off ? (off === ev.home ? ev.away : off === ev.away ? ev.home : null) : null;
+  const plays = (dv.plays || []).filter(x => x && x.text);
+  const lastP = plays[plays.length - 1];
+  const si = s.situation || {};
+  const offAbbr = (off && (off.abbr || off.short)) || '', defAbbr = (def && (def.abbr || def.short)) || '';
+  /* where the ball is: live situation for the current drive, else where the drive ended */
+  let ball = null, togo = null;
+  if (live && isCur && (si.possessionText || si.yardLine !== undefined)){
+    const y = yteOf({possessionText: si.possessionText}, offAbbr);
+    if (y !== null) ball = 100 - y;
+    togo = si.distance !== undefined && si.distance !== null ? +si.distance : null;
+  }
+  if (ball === null && lastP){ const y = yteOf(lastP.end, offAbbr); if (y !== null) ball = 100 - y; }
+  const firstP = plays.find(x => x.start && (x.start.yardsToEndzone !== undefined || x.start.possessionText));
+  const sy = firstP ? yteOf(firstP.start, offAbbr) : yteOf(dv.start, offAbbr);
+  const start = sy !== null ? 100 - sy : null;
+  let html = '';
+  if (p.drive !== undefined) html += `<button class="chip on" style="align-self:flex-start" data-h="${h(() => setP({drive: undefined}))}">${live ? liveDot + 'Back to live' : '‹ Back to last drive'}</button>`;
+  /* situation */
+  if (live && isCur){
+    const dd = si.downDistanceText || si.shortDownDistanceText || '';
+    const parts = String(dd).split(' at ');
+    const to = (n, tm) => `<span>${esc(tm.abbr || tm.short)} ${[0, 1, 2].map(i => `<i class="${i < n ? 'on' : ''}"></i>`).join('')}</span>`;
+    html += `<div class="fsit"><div><div class="dd">${esc(parts[0] || dd || '—')}${si.isRedZone ? '<span class="rz">RED ZONE</span>' : ''}</div><div class="at">${parts[1] ? 'at ' + esc(parts[1]) + ' · ' : ''}${esc(offAbbr)} ball</div></div>
+      <div class="to">${si.awayTimeouts !== undefined ? to(+si.awayTimeouts, ev.away) : ''}${si.homeTimeouts !== undefined ? to(+si.homeTimeouts, ev.home) : ''}</div></div>`;
+  }
+  html += `<div>${fieldSvg({ball, togo: live && isCur ? togo : null, start, offAbbr, defAbbr, rz: live && isCur && !!si.isRedZone})}</div>`;
+  const lp = live && isCur && si.lastPlay && si.lastPlay.text ? si.lastPlay.text : (lastP && lastP.text);
+  if (lp) html += `<div class="lastp"><span class="lbl" style="display:block">${live && isCur ? 'Last play' : (dv.displayResult || dv.result || 'Drive result')}</span>${esc(lp)}</div>`;
+  /* this drive */
+  const meta = [dv.description, dv.start && dv.start.period && dv.start.period.number ? 'Q' + dv.start.period.number : ''].filter(Boolean).join(' · ');
+  html += `<div><div class="lbl" style="margin-bottom:2px">${esc(offAbbr)} drive${meta ? ' · ' + esc(meta) : ''}${dv.shortDisplayResult ? ' · ' + esc(dv.shortDisplayResult) : ''}</div>${playRows(plays, ev) || '<div class="empty" style="padding:10px">No plays yet.</div>'}</div>`;
+  /* win probability */
+  const wpA = s.winprobability || [];
+  if (wpA.length && ev.state !== 'post'){
+    const hw = Math.round((wpA[wpA.length - 1].homeWinPercentage || 0) * 100);
+    html += `<div><div class="lbl">Win probability</div><div class="wp"><div style="width:${100 - hw}%"></div></div><div class="row" style="margin-top:6px;font:600 15px var(--body)"><span>${esc(ev.away.abbr)} ${100 - hw}%</span><span>${esc(ev.home.abbr)} ${hw}%</span></div></div>`;
+  }
+  /* every drive */
+  const RES = r => /touchdown|^td$/i.test(r) ? 'up' : /field goal|^fg$/i.test(r) ? 'up' : /interception|fumble|int|downs|safety|missed|blocked/i.test(r) ? 'down' : 'even';
+  html += '<div><div class="lbl" style="margin-bottom:2px">All drives</div>' + all.map((x, i) => ({x, i})).reverse().map(({x, i}) => {
+    const t = driveTeam(x, ev), r = x.shortDisplayResult || x.displayResult || x.result || (i === all.length - 1 && live ? 'In progress' : '');
+    return `<button class="drow" style="${i === sel ? 'background:var(--soft);border-radius:10px;padding-left:8px;padding-right:8px' : ''}" data-h="${h(() => { setP({drive: i === all.length - 1 && live ? undefined : i}); $('#view').scrollTop = 0; })}">${t && t.logo ? logo(t.logo) : '<span class="ph"></span>'}<span class="main" style="display:flex;flex-direction:column;min-width:0"><span style="font:700 15px var(--body)">${esc((t && (t.abbr || t.short)) || '')}${x.start && x.start.text ? ' · from ' + esc(x.start.text) : ''}</span><span class="sub">${esc(x.description || '')}</span></span>${r ? `<span class="tag ${RES(r)}">${esc(r)}</span>` : ''}</button>`;
+  }).join('') + '</div>';
+  return html;
+}
+
 /* ---------- GAME ---------- */
 const BET_SUBS = lg => ['lines'].concat(lg === 'nfl' || lg === 'nhl' ? ['props'] : [], lg === 'nfl' || lg === 'cfb' ? ['model'] : []);
 function betSub(p, lg){
@@ -1892,7 +2019,7 @@ function betSub(p, lg){
 }
 VIEWS.game = {
   async load(p){
-    const s = await getJSON(`${BASE}${p.path}/summary?event=${p.id}`, 20000);
+    const s = await getJSON(`${BASE}${p.path}/summary?event=${p.id}`, /football/.test(p.path) && (!p.tab || p.tab === 'field') ? 9000 : 20000);
     const comp = (s.header && s.header.competitions && s.header.competitions[0]) || {};
     const ev = norm({id: p.id, date: comp.date, competitions:[comp], status: comp.status, _path: p.path}, p.lg);
     if (!ev.sit.text && s.situation){
@@ -1953,6 +2080,7 @@ VIEWS.game = {
     if (t === 'scoring') body = scoringTab(s, ev);
     if (t === 'plays') body = playsTab(s, ev);
     if (t === 'pitches') body = pitchesTab(d, ev, p);
+    if (t === 'field') body = fieldTab(d.s, ev, p);
     if (t === 'news') body = gameNewsTab(s, ev, p, avail);
     let strip = '';
     if (t !== 'bet' && bets.length){
@@ -1974,12 +2102,14 @@ VIEWS.game = {
 function gameTabs(ev){
   if (ev.state === 'pre') return [['bet', 'BET'], ['news', 'NEWS']];
   if (ev.lg === 'mlb') return [['pitches', 'PITCHES'], ['scoring', 'SCORING'], ['box', 'BOX'], ['bet', 'BET'], ['news', 'NEWS']];
+  if (/football/.test(ev.path || '')) return [['field', 'FIELD'], ['scoring', 'SCORING'], ['box', 'BOX'], ['bet', 'BET'], ['news', 'NEWS']];
   return [['scoring', 'SCORING'], ['box', 'BOX'], ['plays', 'PLAYS'], ['bet', 'BET'], ['news', 'NEWS']];
 }
 function gameTab(p, ev){
   const ks = gameTabs(ev).map(x => x[0]);
   const want = p.tab === 'odds' || p.tab === 'props' || p.tab === 'model' ? 'bet' : p.tab;
-  return ks.includes(want) ? want : (ev.state === 'pre' ? 'bet' : ev.lg === 'mlb' ? 'pitches' : 'scoring');
+  if (want === 'plays' && ks.includes('field')) return 'field';
+  return ks.includes(want) ? want : (ev.state === 'pre' ? 'bet' : ev.lg === 'mlb' ? 'pitches' : ks.includes('field') && ev.state === 'in' ? 'field' : 'scoring');
 }
 /* Lines, props and your power ratings in one place, plus your bets. */
 function betTab(d, ev, p, avail, bets, tapBet){
@@ -3209,7 +3339,8 @@ setInterval(() => {
   if (document.hidden || !$('#sheet').hidden) return;
   const c = cur(), n = c.name;
   /* Live pitch tracker: every 10 seconds. Everything else: every 30. */
-  const pitchLive = n === 'game' && c.p.lg === 'mlb' && (!c.p.tab || c.p.tab === 'pitches') && c.p.ab === undefined && document.querySelector('#view .mlbsit');
+  const pitchLive = n === 'game' && ((c.p.lg === 'mlb' && (!c.p.tab || c.p.tab === 'pitches') && c.p.ab === undefined && document.querySelector('#view .mlbsit'))
+    || (/football/.test(c.p.path || '') && (!c.p.tab || c.p.tab === 'field') && c.p.drive === undefined && document.querySelector('#view .fsit')));
   if (pitchLive){ render(true); return; }
   if (tick % 3) return;
   setDate();
