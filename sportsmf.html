@@ -147,6 +147,8 @@ button.lb{width:100%;border-left:0;border-right:0;border-top:0;background:none;t
 .ordrow button.mv:disabled{opacity:.25}
 .ordrow .tg{width:58px;height:34px;border-radius:17px;border:1.5px solid var(--silver);background:var(--soft);font:700 13px var(--body)}
 .ordrow .tg.on{background:var(--blue);border-color:var(--blue);color:#fff}
+.demo-pill{display:inline-block;margin-left:8px;padding:2px 7px;border-radius:6px;background:var(--red);color:#fff;font:800 12px/1.3 var(--body);letter-spacing:1px;vertical-align:4px}
+.demo-note{background:var(--soft);border:1.5px dashed var(--silver);border-radius:12px;padding:8px 12px;font:600 13px/1.4 var(--body);color:var(--muted);margin-bottom:8px}
 .linkbtn{border:0;background:none;color:var(--blue);font:600 16px var(--body);padding:10px 0;text-align:left;text-decoration:none;display:inline-block}
 #ptr{position:fixed;left:0;right:0;transition:height .15s;top:calc(52px + env(safe-area-inset-top));height:0;overflow:hidden;display:flex;align-items:flex-end;justify-content:center;font:600 13px var(--body);color:var(--muted);z-index:15;pointer-events:none}
 #ptr span{padding-bottom:8px}
@@ -364,7 +366,7 @@ const TEAM_LGS = LEAGUES.filter(l => l.type === 'team');
 const COLLEGE_LGS = LEAGUES.filter(l => l.college);
 const BOOKS = ['DraftKings','FanDuel','Bet365','BetMGM','Fanatics','Hard Rock','theScore','BetRivers','betPARX','Caesars','ESPN BET'];
 const BOOK_MAP = {draftkings:'DraftKings', fanduel:'FanDuel', betmgm:'BetMGM', caesars:'Caesars', espnbet:'ESPN BET', bet365:'Bet365', fanatics:'Fanatics', hardrock:'Hard Rock', hardrockbet:'Hard Rock', betrivers:'BetRivers', thescore:'theScore', betparx:'betPARX'};
-const BUILD = '2026-10-17 v29';
+const BUILD = '2026-10-17 v30';
 /* The Call Sheet lives on the same site (jibboo72.github.io), so its saved
    data and its published odds file are both readable from here. */
 const CS_KEY = 'nfl-call-sheet-v3';
@@ -392,19 +394,24 @@ const DEFAULT_FAVS = [
 ];
 
 /* ================= STORAGE ================= */
+/* DEMO MODE (open sportsmf.html?demo): for showing friends. Its own storage,
+   never reads your Call Sheet or your SportsMF bets, and fills itself with
+   made-up bets picked by your models from today's real games. */
+const DEMO = (() => { try { return new URLSearchParams(location.search).has('demo'); } catch (e){ return false; } })();
+const SPFX = DEMO ? 'smf.demo.' : 'smf.';
 const store = {
-  get(k, d){ try { const v = localStorage.getItem('smf.' + k); return v ? JSON.parse(v) : d; } catch(e){ return d; } },
-  set(k, v){ try { localStorage.setItem('smf.' + k, JSON.stringify(v)); } catch(e){} }
+  get(k, d){ try { const v = localStorage.getItem(SPFX + k); return v ? JSON.parse(v) : d; } catch(e){ return d; } },
+  set(k, v){ try { localStorage.setItem(SPFX + k, JSON.stringify(v)); } catch(e){} }
 };
 const S = {
   favs: store.get('favs', DEFAULT_FAVS),
   bets: store.get('bets', []),
-  unit: store.get('unit', 14),
+  unit: store.get('unit', DEMO ? 10 : 14),
   lastBook: store.get('lastBook', 'DraftKings'),
   showCS: store.get('showCS', true),
   theme: store.get('theme', 'light'),
-  mfl: store.get('mfl', {host: 'www45.myfantasyleague.com', year: '2026', league: '30258', franchise: '', apikey: ''}),
-  ghToken: store.get('ghToken', ''),
+  mfl: DEMO ? {host: '', year: '2026', league: '', franchise: '', apikey: ''} : store.get('mfl', {host: 'www45.myfantasyleague.com', year: '2026', league: '30258', franchise: '', apikey: ''}),
+  ghToken: DEMO ? '' : store.get('ghToken', ''),
   fantasyPos: store.get('fantasyPos', 'bottom'),
   bubbles: store.get('bubbles', ['nfl', 'nba', 'nhl', 'mlb', 'college', 'other'])
 };
@@ -414,7 +421,7 @@ function save(){ store.set('favs', S.favs); store.set('bets', S.bets); store.set
    Sheet's own bankroll. Stakes there are dollars, so they're converted to
    units here with your SportsMF unit size. */
 function csBets(){
-  if (!S.showCS) return [];
+  if (!S.showCS || DEMO) return [];
   try {
     const raw = localStorage.getItem(CS_KEY);
     if (!raw) return [];
@@ -458,7 +465,7 @@ function csWeekNow(){
 /* Same math as the Call Sheet's bankStats(): paper skipped, pushes return
    the stake, fixed returns and boosts honored. Dollars. */
 function csWeekStats(wk){
-  if (!S.showCS) return null;
+  if (!S.showCS || DEMO) return null;
   try {
     const raw = localStorage.getItem(CS_KEY);
     if (!raw) return null;
@@ -485,6 +492,7 @@ function csWeekStats(wk){
 /* Picks sitting on your Call Sheet cards for the sheet week you're on and
    the current calendar week (usually the same). Read-only. */
 function csPicks(){
+  if (DEMO) return [];
   try {
     const raw = localStorage.getItem(CS_KEY);
     if (!raw) return [];
@@ -686,6 +694,84 @@ function learnLogos(evs){
 }
 const stateRank = s => s === 'in' ? 0 : s === 'pre' ? 1 : 2;
 function sortEvents(a, b){ return stateRank(a.state) - stateRank(b.state) || new Date(a.date) - new Date(b.date); }
+
+/* ================= DEMO BETS =================
+   Each day, from real games: spreads and totals where your power ratings
+   (NFL games file, college FBS + FCS ratings) differ from the market by 3+
+   points, on the model's side at -110, plus a couple of anytime-TD props
+   per NFL game from your Call Sheet odds file. Stored in demo storage only;
+   they track live and grade themselves like real bets. */
+let _demoAt = 0;
+async function demoGenerate(){
+  if (!DEMO || Date.now() - _demoAt < 10 * 60000) return;
+  _demoAt = Date.now();
+  const t = today(), have = new Set(S.bets.map(b => b.id)), picks = [];
+  const add = (ev, o) => { const id = 'demo-' + ev.id + '-' + o.k; if (have.has(id)) return; have.add(id); picks.push(Object.assign({id, demo: true, lg: ev.lg, path: ev.path, eventId: String(ev.id), event: `${ev.away.abbr || ev.away.short} @ ${ev.home.abbr || ev.home.short}`, date: ev.date, odds: -110, book: 'Demo', units: 1, status: 'open', created: Date.now()}, o)); };
+  for (const lg of ['nfl', 'cfb']){
+    let ctx; try { ctx = await scoreCtx(lg); } catch (e){ continue; }
+    if (!ctx || !ctx.model) continue;
+    const days = lg === 'nfl' ? [t, addDays(t, 1), addDays(t, 2)] : [t];
+    for (const d of days){
+      let evs = [];
+      try { evs = (await boardAll(LG[lg], d)).map(e => norm(e, lg)); } catch (e){ continue; }
+      evs.filter(ev => ev.state !== 'post').forEach(ev => {
+        const m = modelFor(ctx.model, ev);
+        if (!m) return;
+        const hl = parseSpread(ev), mk = hl !== null ? -hl : m.fileM;
+        if (mk !== null && mk !== undefined){
+          const e = m.modelM - mk;
+          if (Math.abs(e) >= 3){
+            const side = e > 0 ? 'home' : 'away', tm = ev[side], line = side === 'home' ? -mk : mk;
+            add(ev, {k: 'spr', type: 'spread', side, line: Math.round(line * 2) / 2, pick: `${tm.abbr || tm.short} ${Math.abs(line) < 0.25 ? 'PK' : fmtLine(Math.round(line * 2) / 2)}`, edge: Math.abs(e)});
+          }
+        }
+        const mt = m.total ?? (m.g && m.g.ptot), ou = ev.odds.ou ?? (m.g && (m.g.line_total ?? m.g.total));
+        if (mt !== null && mt !== undefined && ou !== null && ou !== undefined && Math.abs(mt - ou) >= 3){
+          const side = mt > ou ? 'over' : 'under';
+          add(ev, {k: 'tot', type: 'total', side, line: +ou, pick: `${side === 'over' ? 'Over' : 'Under'} ${ou}`, edge: Math.abs(mt - ou)});
+        }
+      });
+      /* a couple of anytime-TD props for NFL games on the slate */
+      if (lg === 'nfl' && evs.length){
+        try {
+          const od = await csOdds();
+          evs.filter(ev => ev.state !== 'post').slice(0, 4).forEach(ev => {
+            const g = csGameFor(od, ev);
+            if (!g) return;
+            propRows(g, 'touchdowns').filter(r => r.over && r.over.odds && +r.over.odds >= -150).slice(0, 2).forEach(r => {
+              add(ev, {k: 'td-' + nameKey(r.name), type: 'prop', pick: `${r.name} anytime TD`, odds: parseInt(r.over.odds, 10) || 110, book: 'Demo', edge: 0});
+            });
+          });
+        } catch (e){}
+      }
+    }
+  }
+  if (!picks.length) return;
+  /* keep it to a believable slate: the biggest edges first */
+  const top = (lg, type, n) => picks.filter(b => b.type === type && b.lg === lg).sort((a, b) => b.edge - a.edge).slice(0, n);
+  const sides = ['nfl', 'cfb'].flatMap(lg => top(lg, 'spread', 4).concat(top(lg, 'total', 3))), props = picks.filter(b => b.type === 'prop').slice(0, 6);
+  S.bets = S.bets.concat(sides, props);
+  save();
+}
+/* Demo props grade themselves from the box score once the game is final. */
+function demoGradeProps(evs){
+  if (!DEMO) return;
+  let ch = false;
+  evs.forEach(ev => {
+    if (ev.state !== 'post' || !ev._s) return;
+    S.bets.forEach(b => {
+      if (!b.demo || b.type !== 'prop' || b.status !== 'open' || b.eventId !== String(ev.id)) return;
+      const r = propRead(b, ev, ev._s);
+      if (r && (r.cls === 'up' || r.cls === 'down')){ b.status = r.cls === 'up' ? 'won' : 'lost'; b.settled = Date.now(); ch = true; }
+    });
+  });
+  if (ch) save();
+}
+function demoRecord(){
+  const done = S.bets.filter(b => b.demo && b.status !== 'open');
+  const w = done.filter(b => b.status === 'won').length, l = done.filter(b => b.status === 'lost').length, pu = done.filter(b => b.status === 'push').length;
+  return {w, l, p: pu, u: done.reduce((a, b) => a + profit(b), 0)};
+}
 
 /* ================= LIVE BET READING =================
    Your SportsMF bets carry type/side/line. Call Sheet game bets are typed
@@ -1557,6 +1643,7 @@ function bubbleHtml(id, on, onTap){
 /* ---------- TONIGHT ---------- */
 VIEWS.tonight = {
   async load(p){
+    if (DEMO) await demoGenerate().catch(() => {});
     if (p && p.bub && BUBBLES[p.bub]){
       const lgs = bubbleLgs(p.bub);
       if (!lgs.length) return {bub: true, lgs, lp: null};
@@ -1587,6 +1674,7 @@ VIEWS.tonight = {
       try { const snap = await mflSnapshot(); if (myMatchup(snap)) fantasy = snap; } catch (e){}
     }
     await attachBoxes(mine);
+    demoGradeProps(mine);
     const ctx = {};
     await Promise.all(['nfl', 'cfb'].filter(k => mine.some(e => e.lg === k)).map(async k => { ctx[k] = await scoreCtx(k); }));
     return {evs: mine, fails, fantasy, ctx};
@@ -1595,7 +1683,7 @@ VIEWS.tonight = {
     const f = p.bub ? '' : (p.filter || 'all');
     const chip = (lbl, k) => `<button class="chip ${f === k ? 'on' : ''}" data-h="${h(() => tab('tonight', {filter: k}))}">${lbl}</button>`;
     const bubs = S.bubbles.filter(id => BUBBLES[id]);
-    const header = `<div class="row" style="margin-top:2px;flex-wrap:wrap"><h1 class="title">TONIGHT</h1><div class="chips sm">${chip('All','all')}${chip('My Teams','my')}${chip('Action','bet')}</div></div>
+    const header = (DEMO ? `<div class="demo-note">Demo · the bets here are made up by the model from today's real games. No real money.</div>` : '') + `<div class="row" style="margin-top:2px;flex-wrap:wrap"><h1 class="title">TONIGHT</h1><div class="chips sm">${chip('All','all')}${chip('My Teams','my')}${chip('Action','bet')}</div></div>
       ${bubs.length ? `<div class="bubs">${bubs.map(id => bubbleHtml(id, p.bub === id, () => p.bub === id ? tab('tonight') : tab('tonight', {bub: id}))).join('')}</div>` : ''}`;
     if (d.bub){
       if (!d.lp) return header + '<div class="empty">Every league is already on its own bubble.</div>';
@@ -1905,7 +1993,7 @@ function betTab(d, ev, p, avail, bets, tapBet){
   if (bets.length){
     html += `<div><div class="lbl" style="margin-bottom:6px">Your bets</div><div class="card" style="cursor:default">${bets.map(b => betBand(b, ev, 'button', tapBet(b), d.s)).join('')}</div></div>`;
   }
-  html += `<div class="row" style="justify-content:flex-start;gap:18px;flex-wrap:wrap">${ev.lg === 'nfl' || ev.lg === 'cfb' ? `<a class="linkbtn" href="${CS_URL}">Log a bet in the Call Sheet ›</a>` : ''}<button class="linkbtn" data-h="${h(() => go('addbet', {step:'form', lg: ev.lg, ev, f: defaultForm(ev)}))}">+ Add one here</button></div>`;
+  html += `<div class="row" style="justify-content:flex-start;gap:18px;flex-wrap:wrap">${(ev.lg === 'nfl' || ev.lg === 'cfb') && !DEMO ? `<a class="linkbtn" href="${CS_URL}">Log a bet in the Call Sheet ›</a>` : ''}<button class="linkbtn" data-h="${h(() => go('addbet', {step:'form', lg: ev.lg, ev, f: defaultForm(ev)}))}">+ Add one here</button></div>`;
   return html;
 }
 function fromDate(iso){ const d = new Date(iso); return isNaN(d) ? '' : d.toLocaleDateString(undefined, {weekday:'short', month:'short', day:'numeric'}); }
@@ -2270,7 +2358,7 @@ VIEWS.sports = {
     const order = LEAGUES.filter(l => !quiet(l)).concat(LEAGUES.filter(quiet));
     return `<div class="row" style="margin-top:6px"><h1 class="title">SPORTS</h1></div>
       <div class="grid2" style="margin-top:14px">${order.map(tile).join('')}
-      <button class="tile" data-h="${h(() => go('fantasy', {tab: 'mine'}))}"><b>FANTASY</b><small>${S.mfl && S.mfl.franchise ? 'MyFantasyLeague' : 'Connect MFL'}</small></button></div>
+      ${DEMO ? '' : `<button class="tile" data-h="${h(() => go('fantasy', {tab: 'mine'}))}"><b>FANTASY</b><small>${S.mfl && S.mfl.franchise ? 'MyFantasyLeague' : 'Connect MFL'}</small></button>`}</div>
       <button class="lrow" style="margin-top:10px" data-h="${h(() => go('myteams'))}"><span class="main"><span style="font:600 17px var(--body)">My teams</span><span class="sub">${esc(S.favs.map(f => f.label || f.name.split(' ').slice(-1)[0]).join(' · '))}</span></span><span style="color:var(--dim);font-size:24px">›</span></button>`;
   }
 };
@@ -2435,6 +2523,7 @@ function stat(e, name, num){
 /* ---------- BETS ---------- */
 VIEWS.bets = {
   async load(){
+    if (DEMO) await demoGenerate().catch(() => {});
     await gradeAll().catch(() => {});
     /* Games for open bets around today, so each can show how it's doing. */
     const t = today(), near = new Set([addDays(t, -1), t, addDays(t, 1)]);
@@ -2448,6 +2537,7 @@ VIEWS.bets = {
     const evs = [];
     await Promise.allSettled([...keys].map(async k => { const [lk, dd] = k.split('|'); evs.push(...(await boardAll(LG[lk], dd)).map(e => norm(e, lk))); }));
     await attachBoxes(evs);
+    demoGradeProps(evs);
     return {evs};
   },
   build(p, d, avail){
@@ -2480,16 +2570,17 @@ VIEWS.bets = {
     };
     const chip = (lbl, k) => `<button class="chip ${f === k ? 'on' : ''}" data-h="${h(() => setP({filter: k, page: 0}))}">${lbl}</button>`;
     return `<div class="row" style="margin-top:6px"><h1 class="title">MY BETS</h1><button class="chip" data-h="${h(() => go('settings'))}">1u = ${money(S.unit)} ›</button></div>
-      <div class="${wkStats ? 'tiles3' : 'grid2'}" style="margin-top:12px">
+      <div class="${wkStats || DEMO ? 'tiles3' : 'grid2'}" style="margin-top:12px">
         <div class="stat"><span class="lbl">Open</span><b>${open.length}</b></div>
         <div class="stat"><span class="lbl">Today</span><b class="${cls(td)}">${fmtU(td)}</b></div>
         ${wkStats ? `<div class="stat"><span class="lbl">Week ${wkNo}</span><b class="${cls(wkStats.pl)}" style="font-size:${Math.abs(wkStats.pl) >= 1000 ? 22 : 26}px">${signedMoney(wkStats.pl)}</b></div>` : ''}
+        ${DEMO ? (() => { const r = demoRecord(); return `<div class="stat"><span class="lbl">Model record</span><b style="font-size:22px">${r.w}-${r.l}${r.p ? '-' + r.p : ''}</b><small class="sub ${cls(r.u)}" style="font-weight:700">${fmtU(r.u)}</small></div>`; })() : ''}
       </div>
       <div class="chips" style="margin-top:14px">${chip('Open (' + open.length + ')', 'open')}${chip('Settled', 'settled')}</div>
       <div style="margin-top:4px">${pg.items.length ? pg.items.map(row).join('') : `<div class="empty">${f === 'open' ? 'No open bets.' : 'Nothing settled yet.'}</div>`}</div>
       ${pager(pg.page, pg.pages, n => setP({page: n}))}
-      <a class="bigbtn" style="margin-top:14px;text-decoration:none" href="${CS_URL}">Open Call Sheet ›</a>
-      <div class="sub" style="text-align:center;margin-top:8px">Bets you log in the Call Sheet show up here and on Tonight, live.</div>
+      ${DEMO ? `<div class="sub" style="text-align:center;margin-top:12px">Demo bets: spreads and totals where the power ratings beat the line by 3+ points, plus a few anytime-TD props. They track live and grade themselves.</div>` : `<a class="bigbtn" style="margin-top:14px;text-decoration:none" href="${CS_URL}">Open Call Sheet ›</a>
+      <div class="sub" style="text-align:center;margin-top:8px">Bets you log in the Call Sheet show up here and on Tonight, live.</div>`}
       <button class="linkbtn" style="align-self:center" data-h="${h(() => go('addbet', {step:'league'}))}">+ Add a bet in SportsMF instead</button>`;
   }
 };
@@ -3044,12 +3135,12 @@ VIEWS.settings = {
               <button class="tg ${isOn ? 'on' : ''}" data-h="${h(() => { S.bubbles = isOn ? S.bubbles.filter(x => x !== id) : S.bubbles.concat(id); save(); render(true); })}">${isOn ? 'ON' : 'OFF'}</button></div>`;
           }).join('');
         })()}</div></div>
-      <button class="ghost" style="margin-top:14px" data-h="${h(() => go('mflsetup'))}">Fantasy league (MFL) ›</button>
-      <div class="field" style="margin-top:14px"><label class="lbl" for="ghIn">Fantasy refresh key (GitHub)</label>
+      ${DEMO ? `<div class="demo-note" style="margin-top:14px">Demo mode: separate from the real app. Nothing here touches real bets, the Call Sheet or fantasy. <button class="linkbtn" style="padding:4px 0" data-h="${h(() => { if (confirm('Clear all demo bets and start fresh?')){ S.bets = []; save(); _demoAt = 0; tab('tonight'); } })}">Reset demo bets</button></div>` : `<button class="ghost" style="margin-top:14px" data-h="${h(() => go('mflsetup'))}">Fantasy league (MFL) ›</button>`}
+      ${DEMO ? '' : `<div class="field" style="margin-top:14px"><label class="lbl" for="ghIn">Fantasy refresh key (GitHub)</label>
         <div class="sub">${S.ghToken ? 'Saved on this phone. The Refresh button on Fantasy uses it.' : 'Lets the Refresh button on Fantasy update your league right away.'}</div>
         <div class="row"><input id="ghIn" type="password" autocomplete="off" placeholder="${S.ghToken ? '•••••••• saved' : 'Paste key (github_pat_…)'}"><button class="chip on" style="height:48px" data-h="${h(() => { const v = $('#ghIn').value.trim(); if (!v) return; S.ghToken = v; save(); alert('Saved.'); render(); })}">Save</button></div>
         <div class="row" style="justify-content:flex-start;gap:18px"><button class="linkbtn" data-h="${h(ghKeySheet)}">How to make one ›</button>${S.ghToken ? `<button class="linkbtn" style="color:var(--red)" data-h="${h(() => { if (confirm('Remove the refresh key from this phone?')){ S.ghToken = ''; save(); render(); } })}">Remove key</button>` : ''}</div>
-      </div>
+      </div>`}
       <div class="field" style="margin-top:14px"><label class="lbl" for="unitIn">Unit size ($)</label><div class="row"><input id="unitIn" inputmode="decimal" value="${esc(S.unit)}"><button class="chip on" style="height:48px" data-h="${h(() => { const v = parseFloat($('#unitIn').value); if (v > 0){ S.unit = v; save(); back(); } })}">Save</button></div></div>
       <div class="field" style="margin-top:18px"><span class="lbl">Backup</span><div class="sub">Copy this to move your teams and bets to another phone.</div>
         <button class="ghost" data-h="${h(() => { const t = JSON.stringify({favs: S.favs, bets: S.bets, unit: S.unit}); (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => alert('Copied.'), () => { $('#ioWrap').hidden = false; $('#ioBox').value = t; }); })}">Copy backup</button>
@@ -3058,7 +3149,7 @@ VIEWS.settings = {
         <button class="ghost" data-h="${h(() => { try { const d = JSON.parse($('#ioBox').value); if (!Array.isArray(d.favs) || !Array.isArray(d.bets)) throw 0; if (confirm('Replace your teams and bets with this backup?')){ S.favs = d.favs; S.bets = d.bets; if (d.unit) S.unit = d.unit; save(); alert('Restored.'); back(); } } catch(e){ alert("That doesn't look like a SportsMF backup."); } })}">Restore backup</button></div>
       </div>
 
-      <div class="toggle" style="margin-top:12px"><span>Call Sheet bets in SportsMF</span><button class="${S.showCS ? 'on' : ''}" data-h="${h(() => { S.showCS = !S.showCS; save(); render(); })}">${S.showCS ? 'ON' : 'OFF'}</button></div>
+      ${DEMO ? '' : `<div class="toggle" style="margin-top:12px"><span>Call Sheet bets in SportsMF</span><button class="${S.showCS ? 'on' : ''}" data-h="${h(() => { S.showCS = !S.showCS; save(); render(); })}">${S.showCS ? 'ON' : 'OFF'}</button></div>`}
       <button class="ghost" style="margin-top:18px" data-h="${h(() => { if (confirm('Reset My Teams to the default list?')){ S.favs = JSON.parse(JSON.stringify(DEFAULT_FAVS)); save(); back(); } })}">Reset My Teams</button>
       <div class="sub" style="margin-top:14px">Scores, lines and news from ESPN's public feeds. NFL props from your Call Sheet odds pull.<br>Build ${esc(BUILD)}</div>`;
   }
@@ -3078,6 +3169,7 @@ applyTheme();
 /* ================= BOOT ================= */
 document.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click', () => tab(b.dataset.tab)));
 $('#logoBtn').addEventListener('click', () => tab('tonight'));
+if (DEMO){ const pill = document.createElement('span'); pill.className = 'demo-pill'; pill.textContent = 'DEMO'; $('#logoBtn').appendChild(pill); document.title = 'SportsMF · Demo'; }
 $('#gearBtn').addEventListener('click', () => go('settings'));
 $('#navBack').addEventListener('click', () => { const V = VIEWS[cur().name]; if (V && V.back) V.back(cur().p); else back(); });
 $('#view').addEventListener('scroll', updPast, {passive: true});
@@ -3146,7 +3238,7 @@ async function checkBuild(){
     bar.className = 'bigbtn blue';
     bar.style.cssText = 'position:fixed;left:16px;right:16px;bottom:calc(76px + env(safe-area-inset-bottom));width:auto;z-index:30';
     bar.textContent = 'New version ready · tap to reload';
-    bar.onclick = () => { location.href = location.pathname + '?_=' + Date.now(); };
+    bar.onclick = () => { location.href = location.pathname + '?' + (DEMO ? 'demo&' : '') + '_=' + Date.now(); };
     document.body.appendChild(bar);
   } catch (e){}
 }
