@@ -364,7 +364,7 @@ const TEAM_LGS = LEAGUES.filter(l => l.type === 'team');
 const COLLEGE_LGS = LEAGUES.filter(l => l.college);
 const BOOKS = ['DraftKings','FanDuel','Bet365','BetMGM','Fanatics','Hard Rock','theScore','BetRivers','betPARX','Caesars','ESPN BET'];
 const BOOK_MAP = {draftkings:'DraftKings', fanduel:'FanDuel', betmgm:'BetMGM', caesars:'Caesars', espnbet:'ESPN BET', bet365:'Bet365', fanatics:'Fanatics', hardrock:'Hard Rock', hardrockbet:'Hard Rock', betrivers:'BetRivers', thescore:'theScore', betparx:'betPARX'};
-const BUILD = '2026-10-17 v28';
+const BUILD = '2026-10-17 v29';
 /* The Call Sheet lives on the same site (jibboo72.github.io), so its saved
    data and its published odds file are both readable from here. */
 const CS_KEY = 'nfl-call-sheet-v3';
@@ -1043,7 +1043,7 @@ function gameCard(ev, ctx){
     const right = ev.state === 'pre'
       ? `<span class="ml">${mlv !== undefined && mlv !== null ? fmtOdds(mlv) : ''}</span>`
       : `<span class="sc ${ev.state === 'post' && parseFloat(t.score) < parseFloat(other.score) ? 'lose' : ''}${flashCls(ev, side)}">${esc(t.score)}</span>`;
-    return `<div class="tm">${logo(t.logo)}<span class="nm"><span data-h="${h(() => go('team', {lg: ev.lg, id: t.id}))}">${t.rank ? `<span class="rk">${t.rank}</span>` : ''}${esc(t.short)}</span>${mark(t)}${poss(t)}</span>${right}</div>`;
+    return `<div class="tm">${logo(t.logo)}<span class="nm"><span data-h="${h(() => go('team', {lg: ev.lg, id: t.id, t: tsnap(t)}))}">${t.rank ? `<span class="rk">${t.rank}</span>` : ''}${esc(t.short)}</span>${mark(t)}${poss(t)}</span>${right}</div>`;
   };
   const sit = ev.state === 'in' ? sitText(ev) : '';
   const bands = bs.slice(0, 3).map(b => betBand(b, ev, null, null, ev._s)).join('') + (bs.length > 3 ? `<div class="bband"><span>+${bs.length - 3} more bets</span></div>` : '');
@@ -1117,8 +1117,8 @@ function gameRow(ev, onTap, ctx){
   return `<button class="gr" data-h="${h(onTap)}">
     <span class="stc"><span>${ev.state === 'in' ? `<span class="livec">${liveDot}${esc(ev.detail)}</span>` : ev.state === 'pre' ? esc(tm(ev.date)) : esc(ev.detail || 'Final')}</span>${edge}</span>
     <span style="display:flex;flex-direction:column;min-width:0">
-      <span class="tl ${fa ? 'fav' : ''}">${logo(ev.away.logo)}<span data-h="${h(() => go('team', {lg: ev.lg, id: ev.away.id}))}">${ev.away.rank ? `<span class="rk">${ev.away.rank}</span>` : ''}${esc(ev.away.short)}</span>${mark(ev.away)}${hasBet ? '<i class="dotg" aria-label="Bet placed"></i>' : ''}</span>
-      <span class="tl ${fh ? 'fav' : ''}">${logo(ev.home.logo)}<span data-h="${h(() => go('team', {lg: ev.lg, id: ev.home.id}))}">${ev.home.rank ? `<span class="rk">${ev.home.rank}</span>` : ''}${esc(ev.home.short)}</span>${mark(ev.home)}</span>
+      <span class="tl ${fa ? 'fav' : ''}">${logo(ev.away.logo)}<span data-h="${h(() => go('team', {lg: ev.lg, id: ev.away.id, t: tsnap(ev.away)}))}">${ev.away.rank ? `<span class="rk">${ev.away.rank}</span>` : ''}${esc(ev.away.short)}</span>${mark(ev.away)}${hasBet ? '<i class="dotg" aria-label="Bet placed"></i>' : ''}</span>
+      <span class="tl ${fh ? 'fav' : ''}">${logo(ev.home.logo)}<span data-h="${h(() => go('team', {lg: ev.lg, id: ev.home.id, t: tsnap(ev.home)}))}">${ev.home.rank ? `<span class="rk">${ev.home.rank}</span>` : ''}${esc(ev.home.short)}</span>${mark(ev.home)}</span>
     </span>
     <span class="scs">${sc(ev.away, 'away')}${sc(ev.home, 'home')}</span>
     ${lns}
@@ -1850,7 +1850,7 @@ VIEWS.game = {
   build(p, d, avail){
     const {s, ev, comp} = d;
     const t = gameTab(p, ev);
-    const side = tm2 => `<div class="side" role="button" data-h="${h(() => go('team', {lg: ev.lg, id: tm2.id}))}">${logo(tm2.logo)}<span class="tn">${tm2.rank ? `<span class="rk">${tm2.rank}</span>` : ''}${esc(tm2.abbr || tm2.short)}${ev.state === 'in' && ev.sit.poss && ev.sit.poss === String(tm2.id) ? '<i class="poss" aria-label="Has the ball"></i>' : ''}</span><span class="rec">${esc(tm2.record)}</span></div>`;
+    const side = tm2 => `<div class="side" role="button" data-h="${h(() => go('team', {lg: ev.lg, id: tm2.id, t: tsnap(tm2)}))}">${logo(tm2.logo)}<span class="tn">${tm2.rank ? `<span class="rk">${tm2.rank}</span>` : ''}${esc(tm2.abbr || tm2.short)}${ev.state === 'in' && ev.sit.poss && ev.sit.poss === String(tm2.id) ? '<i class="poss" aria-label="Has the ball"></i>' : ''}</span><span class="rec">${esc(tm2.record)}</span></div>`;
     const sit = ev.state === 'in' ? sitText(ev) : '';
     const mid = ev.state === 'pre'
       ? `<div class="mid"><div class="scr" style="font-size:34px">${esc(tm(ev.date))}</div><div class="st" style="color:var(--muted)">${esc(fromDate(ev.date))}${ev.net ? ' · ' + esc(ev.net) : ''}</div></div>`
@@ -2396,7 +2396,7 @@ function rankingsBody(l, d, p, room){
     const fav = S.favs.find(f => f.lg.includes(l.key) && (same(f.name, full) || same(f.name, t.displayName) || nameKey(f.name).startsWith(nameKey(nm))));
     const lg2 = t.logos && t.logos[0] && t.logos[0].href || t.logo;
     const mv = (r.previous && r.current && r.previous !== r.current) ? (r.previous > r.current ? `<span style="color:var(--green-t)">▲${r.previous - r.current}</span>` : `<span style="color:var(--red)">▼${r.current - r.previous}</span>`) : '';
-    return `<button class="lb" data-h="${h(() => t.id && go('team', {lg: l.key, id: t.id}))}" style="grid-template-columns:34px 1fr auto auto"><span class="p">${esc(r.current)}</span><span class="${fav ? 'fav' : ''}" style="display:flex;align-items:center;gap:8px;font:800 19px var(--disp);min-width:0">${lg2 ? `<img class="logoimg" style="width:22px;height:22px" src="${esc(lg2)}" alt="">` : ''}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(nm)}</span>${r.firstPlaceVotes ? `<small style="font:600 12px var(--body);color:var(--muted)">(${esc(r.firstPlaceVotes)})</small>` : ''}</span><span style="font:700 15px var(--body)">${esc(r.recordSummary || '')}</span><span class="sub" style="min-width:34px;text-align:right;font-weight:700">${mv}</span></button>`;
+    return `<button class="lb" data-h="${h(() => t.id && go('team', {lg: l.key, id: t.id, t: tsnap(t)}))}" style="grid-template-columns:34px 1fr auto auto"><span class="p">${esc(r.current)}</span><span class="${fav ? 'fav' : ''}" style="display:flex;align-items:center;gap:8px;font:800 19px var(--disp);min-width:0">${lg2 ? `<img class="logoimg" style="width:22px;height:22px" src="${esc(lg2)}" alt="">` : ''}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(nm)}</span>${r.firstPlaceVotes ? `<small style="font:600 12px var(--body);color:var(--muted)">(${esc(r.firstPlaceVotes)})</small>` : ''}</span><span style="font:700 15px var(--body)">${esc(r.recordSummary || '')}</span><span class="sub" style="min-width:34px;text-align:right;font-weight:700">${mv}</span></button>`;
   };
   return `${chips}<div class="lbl" style="margin-top:12px">${esc(poll.name || poll.shortName || 'Poll')}${poll.headline ? ' · ' + esc(poll.headline) : ''}</div><div>${pg.items.map(row).join('')}</div>${pager(pg.page, pg.pages, n => setP({page: n}))}`;
 }
@@ -2422,7 +2422,7 @@ function standingsBody(l, d, p){
     const extra = l.pts ? 'PTS ' + (stat(e, 'points') || '—') : l.college ? (stat(e, 'vs. Conf.') || stat(e, 'vsconf') ? 'Conf ' + (stat(e, 'vs. Conf.') || stat(e, 'vsconf')) : '') : (stat(e, 'gamesBehind') ? 'GB ' + stat(e, 'gamesBehind') : '');
     const fav = favOf(t.displayName, l.key);
     const lg2 = t.logos && t.logos[0] && t.logos[0].href;
-    return `<button class="lb" data-h="${h(() => t.id && go('team', {lg: l.key, id: t.id}))}" style="grid-template-columns:30px 1fr auto auto"><span class="p">${i + 1}</span><span class="${fav ? 'fav' : ''}" style="display:flex;align-items:center;gap:8px;font:800 19px var(--disp);min-width:0">${lg2 ? `<img class="logoimg" style="width:22px;height:22px" src="${esc(lg2)}" alt="" loading="lazy">` : ''}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(t.shortDisplayName || t.displayName || '')}</span></span><span style="font:700 16px var(--body)">${esc(rec)}</span><span class="sub" style="min-width:58px;text-align:right">${esc(extra)}</span></button>`;
+    return `<button class="lb" data-h="${h(() => t.id && go('team', {lg: l.key, id: t.id, t: tsnap(t)}))}" style="grid-template-columns:30px 1fr auto auto"><span class="p">${i + 1}</span><span class="${fav ? 'fav' : ''}" style="display:flex;align-items:center;gap:8px;font:800 19px var(--disp);min-width:0">${lg2 ? `<img class="logoimg" style="width:22px;height:22px" src="${esc(lg2)}" alt="" loading="lazy">` : ''}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(t.shortDisplayName || t.displayName || '')}</span></span><span style="font:700 16px var(--body)">${esc(rec)}</span><span class="sub" style="min-width:58px;text-align:right">${esc(extra)}</span></button>`;
   };
   return groups.map(g => `<div class="lbl ghdr">${esc(g.name)}</div><div>${g.entries.slice().sort(sortFn).map(row).join('')}</div>`).join('');
 }
@@ -2691,18 +2691,27 @@ VIEWS.news = {
   }
 };
 
+/* What a team page needs to draw its header without ESPN's team feeds
+   (which some phones refuse): taken from the game or table you tapped. */
+const tsnap = t => t ? {id: t.id, name: t.name || t.displayName || '', short: t.short || t.shortDisplayName || '', abbr: t.abbr || t.abbreviation || '', loc: t.loc || t.location || '', logo: t.logo || (t.logos && t.logos[0] && t.logos[0].href) || '', record: t.record || ''} : null;
 /* ---------- TEAM PAGE ----------
    Schedule, roster, injuries and news for one team. Reached from a game's
    scoreboard, standings, rankings, or My Teams. */
 const teamIdCache = {};
-async function teamIdFor(lgKey, name){
+async function teamIdFor(lgKey, name, p){
   const k = lgKey + '|' + name;
   if (teamIdCache[k]) return teamIdCache[k];
-  const d = await getJSON(`${BASE}${LG[lgKey].path}/teams?limit=1000`, 3600000);
-  const list = ((((d.sports || [])[0] || {}).leagues || [])[0] || {}).teams || [];
-  const t = list.map(x => x.team).find(t => t && (same(t.displayName, name) || same(t.name, name) || same(t.shortDisplayName, name)));
-  if (!t) throw new Error('Couldn\'t find ' + name);
-  return (teamIdCache[k] = t.id);
+  try {
+    const d = await getJSON(`${BASE}${LG[lgKey].path}/teams?limit=1000`, 3600000);
+    const list = ((((d.sports || [])[0] || {}).leagues || [])[0] || {}).teams || [];
+    const t = list.map(x => x.team).find(t => t && (same(t.displayName, name) || same(t.name, name) || same(t.shortDisplayName, name)));
+    if (t) return (teamIdCache[k] = t.id);
+  } catch (e){}
+  /* Team list refused: find the team on the scoreboard around today. */
+  const t0 = today();
+  const evs = (await board(LG[lgKey], addDays(t0, -21) + '-' + addDays(t0, 21), null, 600000)).map(e => norm(e, lgKey));
+  for (const e of evs) for (const tm of [e.home, e.away]) if (same(tm.name, name)){ if (p) p.t = tsnap(tm); return (teamIdCache[k] = tm.id); }
+  throw new Error('Couldn\'t find ' + name + ' on the schedule');
 }
 const POS_ORDER = ['QB', 'RB', 'FB', 'WR', 'TE', 'OT', 'T', 'OG', 'G', 'C', 'OL', 'DE', 'EDGE', 'DT', 'NT', 'DL', 'LB', 'OLB', 'ILB', 'MLB', 'CB', 'S', 'FS', 'SS', 'DB', 'K', 'PK', 'P', 'LS', 'SP', 'RP', 'C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF', 'DH', 'PG', 'SG', 'SF', 'PF', 'G', 'F', 'C', 'LW', 'RW', 'D'];
 const posRank = a => { const i = POS_ORDER.indexOf(String((a.position && a.position.abbreviation) || '').toUpperCase()); return i < 0 ? 99 : i; };
@@ -2710,7 +2719,7 @@ const INJ_RANK = s => /out|injured reserve|^ir/i.test(s) ? 0 : /doubt/i.test(s) 
 VIEWS.team = {
   async load(p){
     const l = LG[p.lg];
-    const id = p.id || await teamIdFor(p.lg, p.name);
+    const id = p.id || await teamIdFor(p.lg, p.name, p);
     p.id = id;
     const base = `${BASE}${l.path}/teams/${id}`;
     let power = null;
@@ -2736,6 +2745,10 @@ VIEWS.team = {
         const list = ((((d.sports || [])[0] || {}).leagues || [])[0] || {}).teams || [];
         team = (list.map(x => x.team).find(x => x && String(x.id) === String(id))) || null;
       } catch (e){}
+      if (!team && p.t && p.t.name){
+        const x = p.t;
+        team = {id: String(id), displayName: x.name, shortDisplayName: x.short || x.name, abbreviation: x.abbr, location: x.loc, name: x.name, logos: x.logo ? [{href: x.logo}] : [], record: x.record ? {items: [{type: 'total', summary: x.record}]} : null};
+      }
       if (!team) throw new Error('ESPN\'s team feeds aren\'t loading right now (' + ((info.reason && info.reason.message) || 'blocked') + ')');
     }
     let schedV = sched.status === 'fulfilled' ? sched.value : null;
@@ -2774,7 +2787,7 @@ VIEWS.team = {
     const seg = (k, lbl) => `<button class="${tab === k ? 'on' : ''}" data-h="${h(() => setP({tab: k}))}">${lbl}</button>`;
     let html = `<div class="thead">${logo(lg2)}<div style="min-width:0"><h1 class="title" style="font-size:30px">${esc(String(t.displayName || '').toUpperCase())}</h1><div class="sub" style="font-weight:600;margin-top:3px">${esc([rec && rec.summary, t.standingSummary].filter(Boolean).join(' · '))}</div><div style="margin-top:8px">${favBtn}</div></div></div>
       ${sportChips}
-      <div class="seg stick" style="margin-top:${sportChips ? 10 : 0}px">${hasPower ? seg('power', 'POWER') : ''}${seg('schedule', 'SCHEDULE')}${seg('roster', 'ROSTER')}${seg('inj', 'INJURIES')}${seg('news', 'NEWS')}</div><div style="display:flex;flex-direction:column;gap:12px;margin-top:10px">`;
+      <div class="seg stick" style="margin-top:${sportChips ? 10 : 0}px">${hasPower ? seg('power', 'POWER') : ''}${seg('schedule', 'SCHEDULE')}${d.roster ? seg('roster', 'ROSTER') + seg('inj', 'INJURIES') : ''}${seg('news', 'NEWS')}</div><div style="display:flex;flex-direction:column;gap:12px;margin-top:10px">`;
     if (tab === 'power') html += p.lg === 'nfl' ? nflPowerPage(d.power, t) : cfbPowerPage(d.power, t);
     if (tab === 'schedule') html += teamSchedule(d, p, t);
     if (tab === 'roster') html += teamRoster(d, false);
@@ -2783,7 +2796,7 @@ VIEWS.team = {
       const arts = ((d.news && d.news.articles) || []).filter(realNews);
       html += arts.length ? '<div>' + arts.map(a => newsRow(Object.assign(a, {_label: t.shortDisplayName || l.short, _kind: INJ.test(a.headline + ' ' + (a.description || '')) ? 'inj' : ''}))).join('') + '</div>' : '<div class="empty">No recent stories.</div>';
     }
-    if ((d.missed || []).length) html += `<div class="sub" style="margin-top:4px">Couldn't load from ESPN: ${esc(d.missed.join(', '))}.</div>`;
+    if ((d.missed || []).length && tab !== 'power') html += `<div class="sub" style="margin-top:4px">ESPN's team feeds aren't available on this phone, so this page uses the scoreboard and news instead${d.roster ? '' : ' (no roster or injury list)'}.</div>`;
     return html + '</div>';
   }
 };
@@ -2947,7 +2960,7 @@ VIEWS.myteams = {
     const row = fv => {
       const sub = fv.college ? fv.lg.map(k => LG[k] && LG[k].sport).filter(Boolean).join(' · ') : fv.lg.map(k => LG[k] && LG[k].short).join(' · ');
       return `<div class="lrow" style="padding:8px 2px">
-        <span style="display:flex;align-items:center;gap:12px;min-width:0">${logo(fv.logo)}<span class="main"><button class="tlink" data-h="${h(() => go('team', {lg: fv.lg[0], name: fv.name, lgs: fv.lg}))}">${esc(fv.label || fv.name)} <span style="color:var(--dim);font-size:20px">›</span></button>${fv.college ? `<button class="back" style="min-height:28px;font-size:14px" data-h="${h(() => sportsSheet(fv))}">${esc(sub)} · Edit sports ›</button>` : `<span class="sub">${esc(sub)}</span>`}</span></span>
+        <span style="display:flex;align-items:center;gap:12px;min-width:0">${logo(fv.logo)}<span class="main"><button class="tlink" data-h="${h(() => go('team', {lg: fv.lg[0], name: fv.name, t: {name: fv.name, logo: fv.logo || ''}, lgs: fv.lg}))}">${esc(fv.label || fv.name)} <span style="color:var(--dim);font-size:20px">›</span></button>${fv.college ? `<button class="back" style="min-height:28px;font-size:14px" data-h="${h(() => sportsSheet(fv))}">${esc(sub)} · Edit sports ›</button>` : `<span class="sub">${esc(sub)}</span>`}</span></span>
         <button aria-label="Remove ${esc(fv.label || fv.name)}" style="width:44px;height:44px;border:0;background:none;color:var(--dim);font-size:24px" data-h="${h(() => { if (confirm('Remove ' + (fv.label || fv.name) + '?')){ S.favs = S.favs.filter(x => x !== fv); save(); render(); } })}">×</button>
       </div>`;
     };
