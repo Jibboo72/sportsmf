@@ -364,7 +364,7 @@ const TEAM_LGS = LEAGUES.filter(l => l.type === 'team');
 const COLLEGE_LGS = LEAGUES.filter(l => l.college);
 const BOOKS = ['DraftKings','FanDuel','Bet365','BetMGM','Fanatics','Hard Rock','theScore','BetRivers','betPARX','Caesars','ESPN BET'];
 const BOOK_MAP = {draftkings:'DraftKings', fanduel:'FanDuel', betmgm:'BetMGM', caesars:'Caesars', espnbet:'ESPN BET', bet365:'Bet365', fanatics:'Fanatics', hardrock:'Hard Rock', hardrockbet:'Hard Rock', betrivers:'BetRivers', thescore:'theScore', betparx:'betPARX'};
-const BUILD = '2026-10-17 v25';
+const BUILD = '2026-10-17 v27';
 /* The Call Sheet lives on the same site (jibboo72.github.io), so its saved
    data and its published odds file are both readable from here. */
 const CS_KEY = 'nfl-call-sheet-v3';
@@ -435,6 +435,7 @@ function csBets(){
         odds: isNaN(odds) ? null : odds, book: b.book || 'Call Sheet', units: Math.round(stake / u * 100) / 100, stake,
         status, plUnits: pl / u, date: b.ts ? new Date(b.ts).toISOString() : null, settled: status !== 'open' ? (b.ts || 0) : null, wk: b.wk,
         matches: [b.match].concat((b.legs || []).map(l => l && l.match)).filter(m => m && m.includes('@')),
+        games: [b.game].concat((b.legs || []).map(l => l && l.game)).filter(Boolean).map(String),
         gdate: b.gdate || '', ts: b.ts || 0
       };
     });
@@ -506,13 +507,32 @@ function csCached(){ if (Date.now() - _cs.t > 4000) _cs = {t: Date.now(), v: csB
 /* Call Sheet game bets carry "AWAY @ HOME" plus the game date. Match that
    to an ESPN game by team (abbreviation or name) and date, within a day
    either way to cover late-night UTC kickoffs. */
+/* Team names typed by hand ("N Dakota St", "SE Missouri St", "Prairie View")
+   are matched loosely: abbreviations expanded, punctuation and the mascot
+   dropped, so they line up with ESPN's full names. */
+function normTeam(s){
+  const DIR = {north: 'n', northern: 'n', n: 'n', south: 's', southern: 's', s: 's', east: 'e', eastern: 'e', e: 'e', west: 'w', western: 'w', w: 'w',
+    southeast: 'se', se: 'se', southeastern: 'se', southwest: 'sw', sw: 'sw', southwestern: 'sw', northeast: 'ne', ne: 'ne', northeastern: 'ne', northwest: 'nw', nw: 'nw', northwestern: 'nw',
+    state: 'st', st: 'st', saint: 'st', univ: '', university: '', u: '', the: '', of: '', college: ''};
+  const x = String(s || '').toLowerCase().replace(/a\s*&\s*m/g, 'am').replace(/a\s*&\s*t/g, 'at').replace(/&/g, ' and ').replace(/[.'’]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+  return x.split(' ').map(w => (w in DIR ? DIR[w] : w)).filter(Boolean).join(' ');
+}
+function teamNames(t){
+  const words = String(t.name || '').split(' ');
+  return [t.short, t.name, t.loc, words.slice(0, -1).join(' '), words.slice(0, -2).join(' ')].filter(Boolean).map(normTeam).filter(Boolean);
+}
 function teamHit(token, t){
   token = String(token || '').trim();
   if (!token) return false;
   const ab = s => (ABBR_ALIAS[String(s || '').toUpperCase()] || String(s || '').toUpperCase());
-  return ab(token) === ab(t.abbr) || same(token, t.short) || same(token, t.name);
+  if (ab(token) === ab(t.abbr) || same(token, t.short) || same(token, t.name)) return true;
+  const n = normTeam(token);
+  return !!n && teamNames(t).includes(n);
 }
 function csMatches(b, ev){
+  /* Bets placed from Call Sheet Sides carry ESPN's own game id for college
+     games — an exact match, no name guessing needed. */
+  if ((b.games || []).includes(String(ev.id))) return true;
   if (!b.matches.length) return false;
   const evDay = fromYmd(ymd(new Date(ev.date))).getTime();
   let dayOk;
@@ -523,7 +543,20 @@ function csMatches(b, ev){
     dayOk = b.ts && b.ts <= new Date(ev.date).getTime() + 6 * 3600e3 && new Date(ev.date).getTime() - b.ts < 7 * 864e5;
   }
   if (!dayOk) return false;
-  return b.matches.some(m => { const [a, hm] = m.split('@'); return teamHit(a, ev.away) && teamHit(hm, ev.home); });
+  const near = (tok, t) => {
+    const n = normTeam(tok); if (!n) return false;
+    const ws = n.split(' '), flat = n.replace(/ /g, '');
+    return teamNames(t).some(c => {
+      const cw = c.split(' '), ini = cw.map(w => w[0]).join('');
+      return cw.some(w => w.length >= 3 && ws.includes(w)) || c.replace(/ /g, '').startsWith(flat.slice(0, 3)) || (ini.length >= 2 && (flat.startsWith(ini) || ini.startsWith(flat)));
+    });
+  };
+  return b.matches.some(m => {
+    const [a, hm] = m.split('@');
+    if (teamHit(a, ev.away) && teamHit(hm, ev.home)) return true;
+    /* A team plays once a day: one clear match plus a close-enough other name is the game. */
+    return (teamHit(a, ev.away) && near(hm, ev.home)) || (teamHit(hm, ev.home) && near(a, ev.away));
+  });
 }
 
 /* ================= UTIL ================= */
@@ -579,6 +612,16 @@ async function getJSON(url, ttl){
   LAST_FETCH = Date.now();
   return v;
 }
+/* College football on Tonight and My Bets: FBS and FCS, so FCS-vs-FCS
+   games you bet show up too. Other leagues load as usual. */
+async function boardAll(lg, date){
+  if (lg.key !== 'cfb') return board(lg, date);
+  const [a, b] = await Promise.allSettled([board(lg, date), board(lg, date, 'groups=81&limit=300')]);
+  const out = [], seen = new Set();
+  [a, b].forEach(r => { if (r.status === 'fulfilled') r.value.forEach(e => { if (!seen.has(e.id)){ seen.add(e.id); out.push(e); } }); });
+  if (a.status !== 'fulfilled' && b.status !== 'fulfilled') throw a.reason;
+  return out;
+}
 async function board(lg, date, q2, ttl){
   const paths = lg.paths || [lg.path];
   const qs = [];
@@ -597,7 +640,7 @@ function teamOf(c){
   const t = (c && c.team) || {};
   const rank = c && c.curatedRank && c.curatedRank.current;
   return {
-    id: t.id, name: t.displayName || t.name || (c && c.athlete && c.athlete.displayName) || 'TBD',
+    id: t.id, loc: t.location || '', name: t.displayName || t.name || (c && c.athlete && c.athlete.displayName) || 'TBD',
     short: t.shortDisplayName || t.displayName || t.name || 'TBD', abbr: t.abbreviation || '',
     logo: t.logo || (t.logos && t.logos[0] && t.logos[0].href) || '',
     score: scoreVal(c && c.score), rank: rank && rank < 99 ? rank : null,
@@ -835,7 +878,7 @@ async function gradeAll(){
   await Promise.allSettled(keys.map(async k => {
     const [lk, d] = k.split('|');
     if (!LG[lk]) return;
-    gradeEvents((await board(LG[lk], d)).map(e => norm(e, lk)));
+    gradeEvents((await boardAll(LG[lk], d)).map(e => norm(e, lk)));
   }));
 }
 function betTag(bs){
@@ -979,7 +1022,7 @@ function gameCard(ev, ctx){
     <div class="meta"><span>${esc(LG[ev.lg].short)}</span><span class="r">${statusText(ev)}</span></div>
     ${row(ev.away, ev.home, ev.odds.awayML, 'away')}
     ${row(ev.home, ev.away, ev.odds.homeML, 'home')}
-    <div class="foot"><span class="ln" style="${sit ? 'color:var(--ink)' : ''}">${sit ? esc(sit) : linesText(ev)}</span><span class="rt">${x.wind ? `<span class="wx" title="${x.wind} mph wind forecast">${WIND_SVG}${x.wind}</span>` : ''}${x.edge ? `<span class="edg" title="Your power ratings differ from the line by ${x.edge.n.toFixed(1)} points">◆ ${x.edge.n.toFixed(1)} edge</span>` : ''}${tag}</span></div>
+    <div class="foot"><span class="ln" style="${sit ? 'color:var(--ink)' : ''}">${sit ? esc(sit) : (!ev.odds.details && x.line !== null ? esc(`${(x.line <= 0 ? ev.home : ev.away).abbr || ''} ${Math.abs(x.line) < 0.05 ? 'PK' : '-' + Math.abs(x.line)}${x.total !== null ? ' · O/U ' + x.total : ''}`) : linesText(ev))}</span><span class="rt">${x.wind ? `<span class="wx" title="${x.wind} mph wind forecast">${WIND_SVG}${x.wind}</span>` : ''}${x.edge ? `<span class="edg" title="Your power ratings differ from the line by ${x.edge.n.toFixed(1)} points">◆ ${x.edge.n.toFixed(1)} edge</span>` : ''}${tag}</span></div>
     ${bands}
   </button>`;
 }
@@ -1002,8 +1045,16 @@ function homeLine(ev){
   return hl === null ? null : hl === 0 ? 'PK' : fmtLine(hl).replace('-', '−');
 }
 function rowExtras(ev, ctx){
-  const out = {wind: null, edge: null};
+  const out = {wind: null, edge: null, line: null, total: null};
   if (!ctx) return out;
+  if (ctx.model){
+    const m0 = modelFor(ctx.model, ev);
+    if (m0 && m0.g){
+      if (m0.fileM !== null && m0.fileM !== undefined) out.line = -m0.fileM;
+      const ft = m0.g.line_total ?? m0.g.total;
+      if (ft !== null && ft !== undefined) out.total = ft;
+    }
+  }
   if (ev.state !== 'post' && ctx.wx){
     let w = null;
     if (ev.lg === 'cfb') w = ctx.wx.cfb && ctx.wx.cfb[String(ev.id)];
@@ -1027,8 +1078,9 @@ function rowExtras(ev, ctx){
 function gameRow(ev, onTap, ctx){
   const fa = favOf(ev.away.name, ev.lg), fh = favOf(ev.home.name, ev.lg);
   const hasBet = betsFor(ev).length > 0;
-  const hl = homeLine(ev), x = rowExtras(ev, ctx);
-  const ou = ev.odds.ou !== undefined && ev.odds.ou !== null && ev.odds.ou !== '' ? ev.odds.ou : null;
+  const x = rowExtras(ev, ctx);
+  const hl = homeLine(ev) || (x.line !== null ? (Math.abs(x.line) < 0.05 ? 'PK' : fmtLine(Math.round(x.line * 10) / 10).replace('-', '−')) : null);
+  const ou = ev.odds.ou !== undefined && ev.odds.ou !== null && ev.odds.ou !== '' ? ev.odds.ou : x.total;
   const lns = hl || ou || x.wind ? `<span class="lns"><span>${x.wind ? `<span class="wx" title="${x.wind} mph wind forecast">${WIND_SVG}${x.wind}</span>` : ''}${ou !== null ? 'o/u ' + esc(ou) : '&nbsp;'}</span><span>${hl ? `<b>${esc(hl)}</b>` : '&nbsp;'}</span></span>` : '<span></span>';
   const edge = x.edge ? `<span class="edg" title="Your power ratings differ from the line by ${x.edge.n.toFixed(1)} points">◆ ${x.edge.n.toFixed(1)} edge</span>` : '';
   const mark = t => x.edge && x.edge.side === t ? '<i class="edgm" aria-label="Model side">◆</i>' : '';
@@ -1489,11 +1541,11 @@ VIEWS.tonight = {
     S.bets.forEach(b => { if (b.eventId && LG[b.lg] && ymd(new Date(b.date)) === t) keys.add(b.lg); });
     const tDay = fromYmd(t).getTime();
     csCached().forEach(b => {
-      if (!b.matches.length) return;
+      if (!b.matches.length && !(b.games || []).length) return;
       const near = b.gdate ? Math.abs(new Date(b.gdate + 'T12:00:00').getTime() - tDay - 12 * 3600e3) <= 1.5 * 864e5 : (Date.now() - b.ts < 7 * 864e5);
       if (near) keys.add(b.lg);
     });
-    const rs = await Promise.allSettled([...keys].map(k => board(LG[k], t).then(es => es.map(e => norm(e, k)))));
+    const rs = await Promise.allSettled([...keys].map(k => boardAll(LG[k], t).then(es => es.map(e => norm(e, k)))));
     const evs = []; let fails = 0;
     rs.forEach(r => r.status === 'fulfilled' ? evs.push(...r.value) : fails++);
     if (keys.size && fails === keys.size) throw new Error('The scores feed is unreachable');
@@ -1739,7 +1791,7 @@ VIEWS.game = {
     const t = gameTab(p, ev);
     const sub = betSub(p, p.lg);
     if ((p.lg === 'nfl' || p.lg === 'cfb') && t === 'bet' && sub !== 'props'){
-      try { const mf = await modelFile(p.lg); out.model = modelFor(mf, ev); out.ats = atsRecord(mf, p.lg); }
+      try { const mf = await modelFile(p.lg), ml = await modelLookup(p.lg); out.model = modelFor(ml, ev); out.ats = atsRecord(out.model && out.model.g && out.model.g._fcs ? (mf._fcsFile || mf) : mf, p.lg); }
       catch (e){ out.modelErr = e.message; }
     }
     if (p.lg === 'mlb' && t === 'pitches'){
@@ -1843,13 +1895,26 @@ async function csFile(urls){
 }
 const CS_WX = ['/callsheet-data/data/weather-2026.json', 'https://raw.githubusercontent.com/Jibboo72/callsheet-data/main/data/weather-2026.json'];
 async function scoreCtx(lg){
-  const [m, w] = await Promise.allSettled([modelFile(lg), csFile(CS_WX)]);
+  const [m, w] = await Promise.allSettled([modelLookup(lg), csFile(CS_WX)]);
   return {model: m.status === 'fulfilled' ? m.value : null, wx: w.status === 'fulfilled' ? w.value : null};
 }
 const CS_MODEL = {
   nfl: ['/callsheet-data/data/games-2026.json', 'https://raw.githubusercontent.com/Jibboo72/callsheet-data/main/data/games-2026.json'],
   cfb: ['/callsheet-data/data/cfb-ratings-2026.json', 'https://raw.githubusercontent.com/Jibboo72/callsheet-data/main/data/cfb-ratings-2026.json']
 };
+/* College model lookups use both your FBS and FCS ratings files. */
+async function modelLookup(lg){
+  const mf = await modelFile(lg);
+  if (lg !== 'cfb') return mf;
+  let fcs = null;
+  try { fcs = await csFile(CS_FCS); } catch (e){}
+  if (!fcs || !(fcs.games || []).length) return mf;
+  if (mf._merged) return mf._merged;
+  const ids = new Set((mf.games || []).map(g => String(g.id)));
+  mf._merged = Object.assign({}, mf, {games: (mf.games || []).concat(fcs.games.filter(g => !ids.has(String(g.id))).map(g => Object.assign({_fcs: true}, g)))});
+  mf._fcsFile = fcs;
+  return mf._merged;
+}
 async function modelFile(lg){
   let last;
   for (const u of CS_MODEL[lg]){ try { return await getJSON(u, 30 * 60000); } catch (e){ last = e; } }
@@ -2347,12 +2412,12 @@ VIEWS.bets = {
     const keys = new Set();
     S.bets.forEach(b => { if (b.status === 'open' && b.eventId && b.date && LG[b.lg]){ const dd = ymd(new Date(b.date)); if (near.has(dd)) keys.add(b.lg + '|' + dd); } });
     csCached().forEach(b => {
-      if (b.status !== 'open' || !b.matches.length) return;
+      if (b.status !== 'open' || (!b.matches.length && !(b.games || []).length)) return;
       const dd = /^\d{4}-\d{2}-\d{2}$/.test(b.gdate) ? b.gdate.replace(/-/g, '') : t;
       if (near.has(dd)) keys.add(b.lg + '|' + dd);
     });
     const evs = [];
-    await Promise.allSettled([...keys].map(async k => { const [lk, dd] = k.split('|'); evs.push(...(await board(LG[lk], dd)).map(e => norm(e, lk))); }));
+    await Promise.allSettled([...keys].map(async k => { const [lk, dd] = k.split('|'); evs.push(...(await boardAll(LG[lk], dd)).map(e => norm(e, lk))); }));
     await attachBoxes(evs);
     return {evs};
   },
@@ -3014,7 +3079,7 @@ setInterval(() => {
   if (pitchLive){ render(true); return; }
   if (tick % 3) return;
   setDate();
-  if (['tonight', 'game', 'league'].includes(n)) render(true);
+  if (['tonight', 'game', 'league', 'bets'].includes(n)) render(true);
 }, 10000);
 /* Re-read Call Sheet data whenever it could have changed: coming back to
    this tab or app, Safari restoring the page, or the Call Sheet saving
