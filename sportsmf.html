@@ -131,6 +131,16 @@ button.lb{width:100%;border-left:0;border-right:0;border-top:0;background:none;t
 .srow .r{display:flex;align-items:center;gap:8px;white-space:nowrap;flex:none}
 .srow .sub{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .srow .sub:last-child{text-align:right;min-width:0}
+.bubs{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin:10px -16px 0;padding:2px 16px}
+.bubs::-webkit-scrollbar{display:none}
+.bub{flex:none;height:42px;min-width:46px;padding:0 10px;border-radius:21px;border:1.5px solid var(--line);background:var(--card);display:flex;align-items:center;justify-content:center;gap:6px;font:800 15px var(--disp);letter-spacing:.4px;color:var(--ink)}
+.bub img{height:26px;width:auto;max-width:44px;object-fit:contain}
+.bub.on{border-color:var(--blue);box-shadow:0 0 0 1.5px var(--blue) inset;background:var(--soft)}
+.ordrow{display:grid;grid-template-columns:1fr auto auto auto;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid var(--line);font:600 16px var(--body)}
+.ordrow button.mv{width:38px;height:38px;border-radius:10px;border:1.5px solid var(--silver);background:var(--card);font:700 16px var(--body)}
+.ordrow button.mv:disabled{opacity:.25}
+.ordrow .tg{width:58px;height:34px;border-radius:17px;border:1.5px solid var(--silver);background:var(--soft);font:700 13px var(--body)}
+.ordrow .tg.on{background:var(--blue);border-color:var(--blue);color:#fff}
 .linkbtn{border:0;background:none;color:var(--blue);font:600 16px var(--body);padding:10px 0;text-align:left;text-decoration:none;display:inline-block}
 #ptr{position:fixed;left:0;right:0;transition:height .15s;top:calc(52px + env(safe-area-inset-top));height:0;overflow:hidden;display:flex;align-items:flex-end;justify-content:center;font:600 13px var(--body);color:var(--muted);z-index:15;pointer-events:none}
 #ptr span{padding-bottom:8px}
@@ -348,7 +358,7 @@ const TEAM_LGS = LEAGUES.filter(l => l.type === 'team');
 const COLLEGE_LGS = LEAGUES.filter(l => l.college);
 const BOOKS = ['DraftKings','FanDuel','Bet365','BetMGM','Fanatics','Hard Rock','theScore','BetRivers','betPARX','Caesars','ESPN BET'];
 const BOOK_MAP = {draftkings:'DraftKings', fanduel:'FanDuel', betmgm:'BetMGM', caesars:'Caesars', espnbet:'ESPN BET', bet365:'Bet365', fanatics:'Fanatics', hardrock:'Hard Rock', hardrockbet:'Hard Rock', betrivers:'BetRivers', thescore:'theScore', betparx:'betPARX'};
-const BUILD = '2026-10-17 v22';
+const BUILD = '2026-10-17 v23';
 /* The Call Sheet lives on the same site (jibboo72.github.io), so its saved
    data and its published odds file are both readable from here. */
 const CS_KEY = 'nfl-call-sheet-v3';
@@ -388,9 +398,11 @@ const S = {
   showCS: store.get('showCS', true),
   theme: store.get('theme', 'light'),
   mfl: store.get('mfl', {host: 'www45.myfantasyleague.com', year: '2026', league: '30258', franchise: '', apikey: ''}),
-  ghToken: store.get('ghToken', '')
+  ghToken: store.get('ghToken', ''),
+  fantasyPos: store.get('fantasyPos', 'bottom'),
+  bubbles: store.get('bubbles', ['nfl', 'nba', 'nhl', 'mlb', 'college', 'other'])
 };
-function save(){ store.set('favs', S.favs); store.set('bets', S.bets); store.set('unit', S.unit); store.set('lastBook', S.lastBook); store.set('showCS', S.showCS); store.set('theme', S.theme); store.set('mfl', S.mfl); store.set('ghToken', S.ghToken); }
+function save(){ store.set('favs', S.favs); store.set('bets', S.bets); store.set('unit', S.unit); store.set('lastBook', S.lastBook); store.set('showCS', S.showCS); store.set('theme', S.theme); store.set('mfl', S.mfl); store.set('ghToken', S.ghToken); store.set('fantasyPos', S.fantasyPos); store.set('bubbles', S.bubbles); }
 
 /* Call Sheet bets, read-only. Paper bets are skipped, same as the Call
    Sheet's own bankroll. Stakes there are dollars, so they're converted to
@@ -1397,9 +1409,43 @@ const VIEWS = {};
 VIEWS.fantasy = FANTASY_VIEW;
 VIEWS.mflsetup = MFLSETUP_VIEW;
 
+/* ---------- Scores bubbles on Tonight ----------
+   One tap from Tonight to any league's scoreboard. Which bubbles show,
+   and in what order, is set in Settings. "College" and "Other" group
+   leagues and show small chips to pick one inside. */
+const LG_LOGO = k => ({nfl: 'nfl', nba: 'nba', nhl: 'nhl', mlb: 'mlb'})[k] ? `https://a.espncdn.com/i/teamlogos/leagues/500/${k}.png` : '';
+const BUBBLES = {
+  nfl: {label: 'NFL', lgs: ['nfl']}, nba: {label: 'NBA', lgs: ['nba']}, nhl: {label: 'NHL', lgs: ['nhl']}, mlb: {label: 'MLB', lgs: ['mlb']},
+  college: {label: 'College', lgs: ['cfb', 'cbb', 'chk']},
+  cfb: {label: 'College FB', lgs: ['cfb']}, cbb: {label: 'College BB', lgs: ['cbb']}, chk: {label: 'College Hockey', lgs: ['chk']},
+  golf: {label: 'Golf', lgs: ['golf']}, f1: {label: 'F1', lgs: ['f1']}, soccer: {label: 'Soccer', lgs: ['soccer']}, tennis: {label: 'Tennis', lgs: ['tennis']},
+  other: {label: 'Other', lgs: null}
+};
+const BUBBLE_ORDER = ['nfl', 'nba', 'nhl', 'mlb', 'college', 'cfb', 'cbb', 'chk', 'golf', 'f1', 'soccer', 'tennis', 'other'];
+/* "Other" = every league that no other turned-on bubble already covers. */
+function bubbleLgs(id){
+  const b = BUBBLES[id];
+  if (!b) return [];
+  if (b.lgs) return b.lgs;
+  const covered = new Set(S.bubbles.filter(x => x !== 'other' && BUBBLES[x]).flatMap(x => BUBBLES[x].lgs));
+  return LEAGUES.map(l => l.key).filter(k => !covered.has(k));
+}
+function bubbleHtml(id, on, onTap){
+  const b = BUBBLES[id], lg = b.lgs && b.lgs.length === 1 ? b.lgs[0] : null, src = lg ? LG_LOGO(lg) : '';
+  const inner = src ? `<img src="${esc(src)}" alt="${esc(b.label)}" onerror="this.nextElementSibling.hidden=false;this.remove()"><span hidden>${esc(b.label)}</span>` : `<span>${esc(b.label)}</span>`;
+  return `<button class="bub ${on ? 'on' : ''}" aria-label="${esc(b.label)} scores" data-h="${h(onTap)}">${inner}</button>`;
+}
+
 /* ---------- TONIGHT ---------- */
 VIEWS.tonight = {
-  async load(){
+  async load(p){
+    if (p && p.bub && BUBBLES[p.bub]){
+      const lgs = bubbleLgs(p.bub);
+      if (!lgs.length) return {bub: true, lgs, lp: null};
+      const lg = lgs.includes(p.blg) ? p.blg : lgs[0];
+      const lp = Object.assign(p, {lg, date: p.date || today(), mode: p.mode || 'scores', embed: true});
+      return {bub: true, lgs, lp, league: await VIEWS.league.load(lp)};
+    }
     const t = today();
     const keys = new Set();
     S.favs.forEach(f => f.lg.forEach(k => { if (LG[k]) keys.add(k); }));
@@ -1428,19 +1474,31 @@ VIEWS.tonight = {
     return {evs: mine, fails, fantasy, ctx};
   },
   build(p, d, avail){
-    const f = p.filter || 'all';
+    const f = p.bub ? '' : (p.filter || 'all');
+    const chip = (lbl, k) => `<button class="chip ${f === k ? 'on' : ''}" data-h="${h(() => tab('tonight', {filter: k}))}">${lbl}</button>`;
+    const bubs = S.bubbles.filter(id => BUBBLES[id]);
+    const header = `<div class="row" style="margin-top:2px;flex-wrap:wrap"><h1 class="title">TONIGHT</h1><div class="chips sm">${chip('All','all')}${chip('My Teams','my')}${chip('Action','bet')}</div></div>
+      ${bubs.length ? `<div class="bubs">${bubs.map(id => bubbleHtml(id, p.bub === id, () => p.bub === id ? tab('tonight') : tab('tonight', {bub: id}))).join('')}</div>` : ''}`;
+    if (d.bub){
+      if (!d.lp) return header + '<div class="empty">Every league is already on its own bubble.</div>';
+      const sub = d.lgs.length > 1 ? `<div class="chips sm" style="margin-top:10px">${d.lgs.map(k => `<button class="chip ${d.lp.lg === k ? 'on' : ''}" data-h="${h(() => tab('tonight', {bub: p.bub, blg: k}))}">${esc(LG[k].name)}</button>`).join('')}</div>` : '';
+      return header + sub + `<div style="margin-top:${sub ? 6 : 10}px">` + VIEWS.league.build(d.lp, d.league, avail) + '</div>';
+    }
     let list = d.evs;
     if (f === 'my') list = list.filter(isFav);
     if (f === 'bet') list = list.filter(e => betsFor(e).length);
-    if (d.fantasy && f !== 'bet') list = [{fantasy: d.fantasy}].concat(list);
+    if (d.fantasy && f !== 'bet'){
+      const dow = new Date().getDay();
+      const first = S.fantasyPos === 'top' || (S.fantasyPos === 'gameday' && (dow === 0 || dow === 1));
+      list = first ? [{fantasy: d.fantasy}].concat(list) : list.concat([{fantasy: d.fantasy}]);
+    }
     const per = perPage(avail, 110, 128, 1);
     const pg = slicePage(list, per, p.page);
-    const chip = (lbl, k) => `<button class="chip ${f === k ? 'on' : ''}" data-h="${h(() => setP({filter: k, page: 0}))}">${lbl}</button>`;
     const empty = list.length || d.evs.length
       ? '<div class="empty">Nothing in this filter tonight.</div>'
       : `<div class="empty">No games tonight for your teams.<br>Add a bet or browse <button class="chip" data-h="${h(() => tab('sports'))}">Sports</button></div>`;
-    return `<div class="row" style="margin-top:2px;flex-wrap:wrap"><h1 class="title">TONIGHT</h1><div class="chips sm">${chip('All','all')}${chip('My Teams','my')}${chip('Bet On','bet')}</div></div>
-      <div style="margin-top:6px">${updLine('pull down to refresh')}</div>
+    return `${header}
+      <div style="margin-top:8px">${updLine('pull down to refresh')}</div>
       ${d.fails ? '<div class="sub" style="margin-top:6px">Some leagues didn\'t load. Pull down to try again.</div>' : ''}
       <div class="stack" style="margin-top:10px">${pg.items.length ? pg.items.map(x => x.fantasy ? fantasyCard(x.fantasy) : gameCard(x, d.ctx && d.ctx[x.lg])).join('') : empty}</div>
       ${pager(pg.page, pg.pages, n => setP({page: n}))}`;
@@ -2115,9 +2173,9 @@ VIEWS.league = {
     const l = LG[p.lg];
     const canStand = l.type === 'team' && !l.nostand;
     const mode = p.mode || 'scores';
-    let html = `<h1 class="title">${esc(l.name.toUpperCase())}</h1>`;
+    let html = p.embed ? '' : `<h1 class="title">${esc(l.name.toUpperCase())}</h1>`;
     const modes = ['scores'].concat(l.rankings ? ['rankings'] : [], canStand ? ['standings'] : []);
-    if (modes.length > 1) html += `<div class="seg" style="margin-top:8px">${modes.map(m => `<button class="${mode === m ? 'on' : ''}" data-h="${h(() => setP({mode: m, page: 0}))}">${m.toUpperCase()}</button>`).join('')}</div>`;
+    if (modes.length > 1) html += `<div class="seg" style="margin-top:${p.embed ? 0 : 8}px">${modes.map(m => `<button class="${mode === m ? 'on' : ''}" data-h="${h(() => setP({mode: m, page: 0}))}">${m.toUpperCase()}</button>`).join('')}</div>`;
     const room = avail;
     if (l.key === 'cfb' && mode !== 'rankings') html += `<div class="chips sm scrollx" style="margin-top:10px">${CFB_CONF.map(c => `<button class="chip ${(p.conf || 'fbs') === c.k ? 'on' : ''}" data-h="${h(() => setP({conf: c.k}))}">${c.l}</button>`).join('')}</div>`;
     if (mode === 'standings' && !l.college) html += `<div class="chips sm" style="margin-top:10px">${[['div','Division'],['conf', l.key === 'nfl' ? 'Conference' : l.key === 'mlb' ? 'League' : 'Conference'],['league', 'Overall']].map(([k, t]) => `<button class="chip ${(p.level || 'div') === k ? 'on' : ''}" data-h="${h(() => setP({level: k}))}">${t}</button>`).join('')}</div>`;
@@ -2828,6 +2886,20 @@ VIEWS.settings = {
   build(){
     return `<h1 class="title">SETTINGS</h1>
             <div class="field" style="margin-top:12px"><span class="lbl">Appearance</span><div class="chips">${[['light','Light'],['dark','Dark'],['auto','Match phone']].map(([k, l]) => `<button class="chip ${S.theme === k ? 'on' : ''}" data-h="${h(() => { S.theme = k; save(); applyTheme(); render(true); })}">${l}</button>`).join('')}</div></div>
+      <div class="field" style="margin-top:14px"><span class="lbl">Fantasy card on Tonight</span><div class="chips">${[['bottom', 'Bottom'], ['top', 'Top'], ['gameday', 'Top on Sun & Mon']].map(([k, l]) => `<button class="chip ${S.fantasyPos === k ? 'on' : ''}" data-h="${h(() => { S.fantasyPos = k; save(); render(true); })}">${l}</button>`).join('')}</div></div>
+      <div class="field" style="margin-top:14px"><span class="lbl">Scores bubbles on Tonight</span><div class="sub">Turn bubbles on or off and use the arrows to set the order. "Other" holds every league not on its own bubble.</div>
+        <div>${(() => {
+          const on = S.bubbles.filter(id => BUBBLES[id]);
+          const all = on.concat(BUBBLE_ORDER.filter(id => !on.includes(id)));
+          const move = (id, dir) => { const i = S.bubbles.indexOf(id), j = i + dir; if (i < 0 || j < 0 || j >= S.bubbles.length) return; const a = S.bubbles.slice(); [a[i], a[j]] = [a[j], a[i]]; S.bubbles = a; save(); render(true); };
+          return all.map(id => {
+            const isOn = on.includes(id), i = on.indexOf(id);
+            return `<div class="ordrow"><span>${esc(BUBBLES[id].label)}${id === 'college' ? ' <small class="sub">FB · BB · Hockey</small>' : ''}</span>
+              <button class="mv" aria-label="Move up" ${!isOn || i === 0 ? 'disabled' : ''} data-h="${h(() => move(id, -1))}">▲</button>
+              <button class="mv" aria-label="Move down" ${!isOn || i === on.length - 1 ? 'disabled' : ''} data-h="${h(() => move(id, 1))}">▼</button>
+              <button class="tg ${isOn ? 'on' : ''}" data-h="${h(() => { S.bubbles = isOn ? S.bubbles.filter(x => x !== id) : S.bubbles.concat(id); save(); render(true); })}">${isOn ? 'ON' : 'OFF'}</button></div>`;
+          }).join('');
+        })()}</div></div>
       <button class="ghost" style="margin-top:14px" data-h="${h(() => go('mflsetup'))}">Fantasy league (MFL) ›</button>
       <div class="field" style="margin-top:14px"><label class="lbl" for="ghIn">Fantasy refresh key (GitHub)</label>
         <div class="sub">${S.ghToken ? 'Saved on this phone. The Refresh button on Fantasy uses it.' : 'Lets the Refresh button on Fantasy update your league right away.'}</div>
