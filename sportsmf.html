@@ -226,11 +226,21 @@ textarea{padding:10px 12px;min-height:110px;font-size:14px}
 .datenav button{height:40px;border-radius:12px;border:1.5px solid var(--silver);background:var(--card);font:800 22px var(--disp)}
 .datenav span{text-align:center;font:800 21px var(--disp);letter-spacing:1px;text-transform:uppercase}
 .grow{flex:1;min-height:0}
-.gr{display:grid;grid-template-columns:62px 1fr auto;align-items:center;gap:8px;padding:6px 2px;border:0;border-bottom:1px solid var(--line);width:100%;background:none;text-align:left;font:inherit}
+.gr{display:grid;grid-template-columns:74px minmax(0,1fr) auto auto;align-items:center;gap:8px;padding:6px 2px;border:0;border-bottom:1px solid var(--line);width:100%;background:none;text-align:left;font:inherit}
 .gr .stc{font:700 13px/1.2 var(--body);color:var(--muted);text-transform:uppercase}
 .gr .tl{display:flex;align-items:center;gap:8px;min-width:0;font:800 19px/1.12 var(--disp);white-space:nowrap;padding:1px 0}
 .gr .tl span{overflow:hidden;text-overflow:ellipsis}
 .gr .tl .logoimg,.gr .tl .ph{width:20px;height:20px}
+.gr .lns{display:flex;flex-direction:column;align-items:flex-end;gap:2px;min-width:58px;font:600 14px/1.38 var(--body);color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.gr .lns b{color:var(--ink);font-weight:700}
+.gr .lns .wx{display:inline-flex;align-items:center;gap:2px;color:var(--blue);margin-right:4px;font-weight:700;font-size:12px}
+.card .edgm{color:var(--green-t);font-style:normal;font-size:15px;margin-left:7px;vertical-align:2px}
+.foot .edg{padding:2px 6px;border-radius:6px;background:var(--green-bg);color:var(--green-t);font:800 12px var(--body);white-space:nowrap}
+.foot .wx{display:inline-flex;align-items:center;gap:2px;color:var(--blue);font:700 12px var(--body);white-space:nowrap}
+.foot .rt{display:flex;align-items:center;gap:6px;flex:none}
+.gr .edgm{color:var(--green-t);font-style:normal;font-size:13px;margin-left:6px;flex:none}
+.gr .edg{display:inline-block;margin-top:3px;padding:1px 5px;border-radius:5px;background:var(--green-bg);color:var(--green-t);font:800 11px/1.3 var(--body);letter-spacing:.2px;white-space:nowrap;text-transform:none}
+.gr .stc{display:flex;flex-direction:column;align-items:flex-start}
 .gr .scs{display:flex;flex-direction:column;align-items:flex-end;font:900 21px/1.12 var(--disp);gap:2px;font-variant-numeric:tabular-nums}
 .fav{color:var(--blue)}
 .dotg{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--green);margin-left:6px;flex:none}
@@ -338,7 +348,7 @@ const TEAM_LGS = LEAGUES.filter(l => l.type === 'team');
 const COLLEGE_LGS = LEAGUES.filter(l => l.college);
 const BOOKS = ['DraftKings','FanDuel','Bet365','BetMGM','Fanatics','Hard Rock','theScore','BetRivers','betPARX','Caesars','ESPN BET'];
 const BOOK_MAP = {draftkings:'DraftKings', fanduel:'FanDuel', betmgm:'BetMGM', caesars:'Caesars', espnbet:'ESPN BET', bet365:'Bet365', fanatics:'Fanatics', hardrock:'Hard Rock', hardrockbet:'Hard Rock', betrivers:'BetRivers', thescore:'theScore', betparx:'betPARX'};
-const BUILD = '2026-10-17 v19';
+const BUILD = '2026-10-17 v22';
 /* The Call Sheet lives on the same site (jibboo72.github.io), so its saved
    data and its published odds file are both readable from here. */
 const CS_KEY = 'nfl-call-sheet-v3';
@@ -933,15 +943,17 @@ function linesText(ev){
   if (ev.odds.ou) parts.push('O/U ' + ev.odds.ou);
   return parts.length ? esc(parts.join(' · ')) : 'No line yet';
 }
-function gameCard(ev){
+function gameCard(ev, ctx){
   const bs = betsFor(ev);
+  const x = rowExtras(ev, ctx);
+  const mark = t => x.edge && x.edge.side === t ? '<i class="edgm" aria-label="Model side">◆</i>' : '';
   const tag = !bs.length && isFav(ev) ? '<span class="tag my">MY TEAM</span>' : '';
   const poss = t => ev.state === 'in' && ev.sit && ev.sit.poss && ev.sit.poss === String(t.id) ? '<i class="poss" aria-label="Has the ball"></i>' : '';
   const row = (t, other, mlv, side) => {
     const right = ev.state === 'pre'
       ? `<span class="ml">${mlv !== undefined && mlv !== null ? fmtOdds(mlv) : ''}</span>`
       : `<span class="sc ${ev.state === 'post' && parseFloat(t.score) < parseFloat(other.score) ? 'lose' : ''}${flashCls(ev, side)}">${esc(t.score)}</span>`;
-    return `<div class="tm">${logo(t.logo)}<span class="nm"><span data-h="${h(() => go('team', {lg: ev.lg, id: t.id}))}">${t.rank ? `<span class="rk">${t.rank}</span>` : ''}${esc(t.short)}</span>${poss(t)}</span>${right}</div>`;
+    return `<div class="tm">${logo(t.logo)}<span class="nm"><span data-h="${h(() => go('team', {lg: ev.lg, id: t.id}))}">${t.rank ? `<span class="rk">${t.rank}</span>` : ''}${esc(t.short)}</span>${mark(t)}${poss(t)}</span>${right}</div>`;
   };
   const sit = ev.state === 'in' ? sitText(ev) : '';
   const bands = bs.slice(0, 3).map(b => betBand(b, ev, null, null, ev._s)).join('') + (bs.length > 3 ? `<div class="bband"><span>+${bs.length - 3} more bets</span></div>` : '');
@@ -949,21 +961,68 @@ function gameCard(ev){
     <div class="meta"><span>${esc(LG[ev.lg].short)}</span><span class="r">${statusText(ev)}</span></div>
     ${row(ev.away, ev.home, ev.odds.awayML, 'away')}
     ${row(ev.home, ev.away, ev.odds.homeML, 'home')}
-    <div class="foot"><span class="ln" style="${sit ? 'color:var(--ink)' : ''}">${sit ? esc(sit) : linesText(ev)}</span>${tag}</div>
+    <div class="foot"><span class="ln" style="${sit ? 'color:var(--ink)' : ''}">${sit ? esc(sit) : linesText(ev)}</span><span class="rt">${x.wind ? `<span class="wx" title="${x.wind} mph wind forecast">${WIND_SVG}${x.wind}</span>` : ''}${x.edge ? `<span class="edg" title="Your power ratings differ from the line by ${x.edge.n.toFixed(1)} points">◆ ${x.edge.n.toFixed(1)} edge</span>` : ''}${tag}</span></div>
     ${bands}
   </button>`;
 }
-function gameRow(ev, onTap){
+/* Scoreboard extras: the line (always read from the home team, the bottom
+   row), the total, a wind marker for 15+ mph forecasts, and a flag when
+   your power ratings disagree with the line by 3+ points. */
+const ML_LGS = ['nhl', 'mlb', 'chk', 'soccer'];
+const WIND_SVG = '<svg width="14" height="12" viewBox="0 0 14 12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M1 4h8.5a2 2 0 1 0-2-2"/><path d="M1 7.5h11a2 2 0 1 1-2 2"/></svg>';
+function homeLine(ev){
+  if (ML_LGS.includes(ev.lg)){
+    let m = ev.odds.homeML;
+    if ((m === undefined || m === null) && ev.odds.details){
+      const x = String(ev.odds.details).match(/^(\S+)\s+([+-]\d{3,})/);
+      if (x && same(x[1], ev.home.abbr)) m = +x[2];
+      else if (x && same(x[1], ev.away.abbr)) return null;
+    }
+    return m === undefined || m === null || isNaN(+m) ? null : fmtOdds(m).replace('-', '−');
+  }
+  const hl = parseSpread(ev);
+  return hl === null ? null : hl === 0 ? 'PK' : fmtLine(hl).replace('-', '−');
+}
+function rowExtras(ev, ctx){
+  const out = {wind: null, edge: null};
+  if (!ctx) return out;
+  if (ev.state !== 'post' && ctx.wx){
+    let w = null;
+    if (ev.lg === 'cfb') w = ctx.wx.cfb && ctx.wx.cfb[String(ev.id)];
+    else if (ev.lg === 'nfl' && ctx.model){ const m = modelFor(ctx.model, ev); if (m && m.g) w = ctx.wx.nfl && ctx.wx.nfl[String(m.g.id)]; }
+    const lim = (ctx.wx.thresholds && ctx.wx.thresholds.wind_mph) || 15;
+    if (w && !w.indoor && w.wind !== undefined && w.wind !== null && (w.wind >= lim || (w.flags || []).includes('wind'))) out.wind = Math.round(w.wind);
+  }
+  if (ev.state !== 'post' && ctx.model){
+    const m = modelFor(ctx.model, ev);
+    if (m){
+      const hl = parseSpread(ev);
+      const mk = hl !== null ? -hl : m.fileM;
+      if (mk !== null && mk !== undefined){
+        const e = m.modelM - mk;
+        if (Math.abs(e) >= 3) out.edge = {side: e > 0 ? ev.home : ev.away, n: Math.abs(e)};
+      }
+    }
+  }
+  return out;
+}
+function gameRow(ev, onTap, ctx){
   const fa = favOf(ev.away.name, ev.lg), fh = favOf(ev.home.name, ev.lg);
   const hasBet = betsFor(ev).length > 0;
+  const hl = homeLine(ev), x = rowExtras(ev, ctx);
+  const ou = ev.odds.ou !== undefined && ev.odds.ou !== null && ev.odds.ou !== '' ? ev.odds.ou : null;
+  const lns = hl || ou || x.wind ? `<span class="lns"><span>${x.wind ? `<span class="wx" title="${x.wind} mph wind forecast">${WIND_SVG}${x.wind}</span>` : ''}${ou !== null ? 'o/u ' + esc(ou) : '&nbsp;'}</span><span>${hl ? `<b>${esc(hl)}</b>` : '&nbsp;'}</span></span>` : '<span></span>';
+  const edge = x.edge ? `<span class="edg" title="Your power ratings differ from the line by ${x.edge.n.toFixed(1)} points">◆ ${x.edge.n.toFixed(1)} edge</span>` : '';
+  const mark = t => x.edge && x.edge.side === t ? '<i class="edgm" aria-label="Model side">◆</i>' : '';
   const sc = (t, side) => ev.state === 'pre' ? '' : `<span class="${flashCls(ev, side).trim()}">${esc(t.score)}</span>`;
   return `<button class="gr" data-h="${h(onTap)}">
-    <span class="stc">${ev.state === 'in' ? `<span class="livec">${liveDot}${esc(ev.detail)}</span>` : ev.state === 'pre' ? esc(tm(ev.date)) : esc(ev.detail || 'Final')}</span>
+    <span class="stc"><span>${ev.state === 'in' ? `<span class="livec">${liveDot}${esc(ev.detail)}</span>` : ev.state === 'pre' ? esc(tm(ev.date)) : esc(ev.detail || 'Final')}</span>${edge}</span>
     <span style="display:flex;flex-direction:column;min-width:0">
-      <span class="tl ${fa ? 'fav' : ''}">${logo(ev.away.logo)}<span data-h="${h(() => go('team', {lg: ev.lg, id: ev.away.id}))}">${ev.away.rank ? `<span class="rk">${ev.away.rank}</span>` : ''}${esc(ev.away.short)}</span>${hasBet ? '<i class="dotg" aria-label="Bet placed"></i>' : ''}</span>
-      <span class="tl ${fh ? 'fav' : ''}">${logo(ev.home.logo)}<span data-h="${h(() => go('team', {lg: ev.lg, id: ev.home.id}))}">${ev.home.rank ? `<span class="rk">${ev.home.rank}</span>` : ''}${esc(ev.home.short)}</span></span>
+      <span class="tl ${fa ? 'fav' : ''}">${logo(ev.away.logo)}<span data-h="${h(() => go('team', {lg: ev.lg, id: ev.away.id}))}">${ev.away.rank ? `<span class="rk">${ev.away.rank}</span>` : ''}${esc(ev.away.short)}</span>${mark(ev.away)}${hasBet ? '<i class="dotg" aria-label="Bet placed"></i>' : ''}</span>
+      <span class="tl ${fh ? 'fav' : ''}">${logo(ev.home.logo)}<span data-h="${h(() => go('team', {lg: ev.lg, id: ev.home.id}))}">${ev.home.rank ? `<span class="rk">${ev.home.rank}</span>` : ''}${esc(ev.home.short)}</span>${mark(ev.home)}</span>
     </span>
     <span class="scs">${sc(ev.away, 'away')}${sc(ev.home, 'home')}</span>
+    ${lns}
   </button>`;
 }
 function dateNav(date, fn){
@@ -1364,7 +1423,9 @@ VIEWS.tonight = {
       try { const snap = await mflSnapshot(); if (myMatchup(snap)) fantasy = snap; } catch (e){}
     }
     await attachBoxes(mine);
-    return {evs: mine, fails, fantasy};
+    const ctx = {};
+    await Promise.all(['nfl', 'cfb'].filter(k => mine.some(e => e.lg === k)).map(async k => { ctx[k] = await scoreCtx(k); }));
+    return {evs: mine, fails, fantasy, ctx};
   },
   build(p, d, avail){
     const f = p.filter || 'all';
@@ -1381,7 +1442,7 @@ VIEWS.tonight = {
     return `<div class="row" style="margin-top:2px;flex-wrap:wrap"><h1 class="title">TONIGHT</h1><div class="chips sm">${chip('All','all')}${chip('My Teams','my')}${chip('Bet On','bet')}</div></div>
       <div style="margin-top:6px">${updLine('pull down to refresh')}</div>
       ${d.fails ? '<div class="sub" style="margin-top:6px">Some leagues didn\'t load. Pull down to try again.</div>' : ''}
-      <div class="stack" style="margin-top:10px">${pg.items.length ? pg.items.map(x => x.fantasy ? fantasyCard(x.fantasy) : gameCard(x)).join('') : empty}</div>
+      <div class="stack" style="margin-top:10px">${pg.items.length ? pg.items.map(x => x.fantasy ? fantasyCard(x.fantasy) : gameCard(x, d.ctx && d.ctx[x.lg])).join('') : empty}</div>
       ${pager(pg.page, pg.pages, n => setP({page: n}))}`;
   }
 };
@@ -1684,6 +1745,11 @@ async function csFile(urls){
   let last;
   for (const u of urls){ try { return await getJSON(u, 30 * 60000); } catch (e){ last = e; } }
   throw last || new Error('Call Sheet file unavailable');
+}
+const CS_WX = ['/callsheet-data/data/weather-2026.json', 'https://raw.githubusercontent.com/Jibboo72/callsheet-data/main/data/weather-2026.json'];
+async function scoreCtx(lg){
+  const [m, w] = await Promise.allSettled([modelFile(lg), csFile(CS_WX)]);
+  return {model: m.status === 'fulfilled' ? m.value : null, wx: w.status === 'fulfilled' ? w.value : null};
 }
 const CS_MODEL = {
   nfl: ['/callsheet-data/data/games-2026.json', 'https://raw.githubusercontent.com/Jibboo72/callsheet-data/main/data/games-2026.json'],
@@ -2035,14 +2101,15 @@ VIEWS.league = {
       const d = await getJSON(`${BASE}${l.path}/rankings`, 600000);
       return {rank: d};
     }
+    const ctx = (l.key === 'nfl' || l.key === 'cfb') ? await scoreCtx(l.key) : null;
     if (l.key === 'cfb'){
       const c = CFB[p.conf || 'fbs'];
       const parts = await Promise.all(c.g.map(g => board(l, p.date, `groups=${g}&limit=300`)));
       const seen = new Set();
-      return {evs: parts.flat().filter(e => !seen.has(e.id) && seen.add(e.id))};
+      return {ctx, evs: parts.flat().filter(e => !seen.has(e.id) && seen.add(e.id))};
     }
     const evs = await board(l, p.date);
-    return {evs};
+    return {ctx, evs};
   },
   build(p, d, avail){
     const l = LG[p.lg];
@@ -2062,7 +2129,7 @@ VIEWS.league = {
       const per = perPage(room, 130, 79, 2);
       const pg = slicePage(evs, per, p.page);
       return html + `<div style="margin-top:10px">${dateNav(p.date, dt => setP({date: dt, page: 0}))}</div>${p.date === today() && evs.some(e => e.state === 'in') ? `<div style="margin-top:6px;text-align:center">${updLine()}</div>` : ''}
-        <div style="margin-top:6px">${pg.items.length ? pg.items.map(ev => gameRow(ev, () => go('game', {lg: ev.lg, path: ev.path, id: ev.id}))).join('') : '<div class="empty">No games on this day.</div>'}</div>
+        <div style="margin-top:6px">${pg.items.length ? pg.items.map(ev => gameRow(ev, () => go('game', {lg: ev.lg, path: ev.path, id: ev.id}), d.ctx)).join('') : '<div class="empty">No games on this day.</div>'}</div>
         ${pager(pg.page, pg.pages, n => setP({page: n}))}`;
     }
     if (l.type === 'golf') return html + golfBody(d.evs, p, room);
@@ -2465,11 +2532,43 @@ VIEWS.team = {
           : {cfb: await modelFile('cfb'), fcs: await csFile(CS_FCS).catch(() => null)};
       } catch (e){ power = {err: e.message}; }
     }
+    /* Each ESPN team feed is tried on its own. If one is blocked or down,
+       the page falls back to feeds the rest of the app already uses (the
+       team list, the scoreboard, league news) instead of failing whole. */
     const [info, sched, roster, news] = await Promise.allSettled([
       getJSON(base, 300000), getJSON(base + '/schedule', 120000), getJSON(base + '/roster', 1800000),
       getJSON(`${BASE}${l.path}/news?team=${id}&limit=25`, 300000)]);
-    if (info.status !== 'fulfilled') throw info.reason;
-    return {power, t: info.value.team || {}, sched: sched.status === 'fulfilled' ? sched.value : null, roster: roster.status === 'fulfilled' ? roster.value : null, news: news.status === 'fulfilled' ? news.value : null};
+    const missed = [];
+    let team = info.status === 'fulfilled' ? (info.value.team || {}) : null;
+    if (!team){
+      missed.push('team details');
+      try {
+        const d = await getJSON(`${BASE}${l.path}/teams?limit=1000`, 3600000);
+        const list = ((((d.sports || [])[0] || {}).leagues || [])[0] || {}).teams || [];
+        team = (list.map(x => x.team).find(x => x && String(x.id) === String(id))) || null;
+      } catch (e){}
+      if (!team) throw new Error('ESPN\'s team feeds aren\'t loading right now (' + ((info.reason && info.reason.message) || 'blocked') + ')');
+    }
+    let schedV = sched.status === 'fulfilled' ? sched.value : null;
+    if (!schedV || !(schedV.events || []).length){
+      if (sched.status !== 'fulfilled') missed.push('full schedule');
+      try {
+        const t0 = today(), q = l.key === 'cfb' ? 'groups=80&limit=1000' : 'limit=1000';
+        const evs = await board(l, addDays(t0, -28) + '-' + addDays(t0, 28), q, 600000);
+        const mine = evs.filter(e => ((e.competitions && e.competitions[0] && e.competitions[0].competitors) || []).some(c => c.team && String(c.team.id) === String(id)));
+        if (mine.length) schedV = {events: mine.sort((a, b) => new Date(a.date) - new Date(b.date)), partial: true};
+      } catch (e){}
+    }
+    let newsV = news.status === 'fulfilled' ? news.value : null;
+    if (!newsV){
+      try {
+        const d = await getJSON(`${BASE}${l.path}/news?limit=50`, 120000);
+        const nm = team.displayName || '';
+        newsV = {articles: (d.articles || []).filter(a => (a.categories || []).some(c => String((c.team && c.team.id) || c.teamId || '') === String(id) || same(c.description, nm)) || String(a.headline || '').includes(team.shortDisplayName || team.name || '~'))};
+      } catch (e){}
+    }
+    if (roster.status !== 'fulfilled') missed.push('roster');
+    return {power, missed, t: team, sched: schedV, roster: roster.status === 'fulfilled' ? roster.value : null, news: newsV};
   },
   build(p, d){
     const l = LG[p.lg], t = d.t;
@@ -2495,6 +2594,7 @@ VIEWS.team = {
       const arts = ((d.news && d.news.articles) || []).filter(realNews);
       html += arts.length ? '<div>' + arts.map(a => newsRow(Object.assign(a, {_label: t.shortDisplayName || l.short, _kind: INJ.test(a.headline + ' ' + (a.description || '')) ? 'inj' : ''}))).join('') + '</div>' : '<div class="empty">No recent stories.</div>';
     }
+    if ((d.missed || []).length) html += `<div class="sub" style="margin-top:4px">Couldn't load from ESPN: ${esc(d.missed.join(', '))}.</div>`;
     return html + '</div>';
   }
 };
@@ -2628,7 +2728,7 @@ function teamSchedule(d, p, t){
     const isNext = e.state !== 'post' && !nextMarked && (nextMarked = true);
     const dt = new Date(e.date).toLocaleDateString(undefined, {weekday: 'short', month: 'short', day: 'numeric'});
     return `<button class="lrow" style="padding:9px 2px;${isNext ? 'background:var(--soft);border-radius:10px;padding-left:8px;padding-right:8px' : ''}" data-h="${h(() => go('game', {lg: p.lg, path: LG[p.lg].path, id: e.id}))}"><span style="display:flex;align-items:center;gap:10px;min-width:0"><span class="sub" style="width:84px;flex:none">${esc(e.week && /football/.test(LG[p.lg].path) ? e.week : dt)}</span><span style="width:20px;flex:none;font:600 13px var(--body);color:var(--muted)">${e.home ? 'vs' : '@'}</span>${olg ? `<img class="logoimg" style="width:22px;height:22px" src="${esc(olg)}" alt="">` : ''}<span style="font:800 19px var(--disp);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(ot.shortDisplayName || ot.displayName || ot.abbreviation || '')}</span></span>${right}</button>`;
-  }).join('') + '</div>' + (evs.length > 30 ? '<div class="sub">Last 10 and next 10 games.</div>' : '');
+  }).join('') + '</div>' + (d.sched && d.sched.partial ? '<div class="sub">Games from four weeks back to four weeks ahead.</div>' : evs.length > 30 ? '<div class="sub">Last 10 and next 10 games.</div>' : '');
 }
 function teamRoster(d, injOnly){
   const raw = (d.roster && d.roster.athletes) || [];
