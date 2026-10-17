@@ -151,15 +151,15 @@ button.lb{width:100%;border-left:0;border-right:0;border-top:0;background:none;t
 .demo-note{background:var(--soft);border:1.5px dashed var(--silver);border-radius:12px;padding:8px 12px;font:600 13px/1.4 var(--body);color:var(--muted);margin-bottom:8px}
 .fieldsvg{width:100%;display:block;border-radius:10px}
 .fsit{display:grid;grid-template-columns:1fr auto;gap:6px 10px;align-items:center;border:1.5px solid var(--line);border-radius:14px;padding:10px 14px}
-.fsit .dd{font:900 30px/1 var(--disp);letter-spacing:.3px}
-.fsit .at{font:600 15px var(--body);color:var(--muted)}
+.fsit .dd{font:900 34px/1 var(--disp);letter-spacing:.4px;color:var(--ink)}
+.fsit .at{font:700 16px var(--body);color:var(--ink);margin-top:3px}
 .fsit .to{display:flex;flex-direction:column;align-items:flex-end;gap:5px;font:700 12px var(--body);color:var(--muted)}
 .fsit .to i{display:inline-block;width:12px;height:5px;border-radius:2px;background:var(--silver);margin-left:3px}
 .fsit .to i.on{background:var(--ink)}
 .rz{display:inline-block;margin-left:8px;padding:1px 6px;border-radius:5px;background:var(--red-bg);color:var(--red);font:800 11px var(--body);vertical-align:5px;letter-spacing:.4px}
 .lastp{border-left:3px solid var(--blue);padding:4px 0 4px 10px;font:600 16px/1.35 var(--body)}
-.prow2{display:grid;grid-template-columns:54px 1fr auto;gap:10px;align-items:start;padding:8px 2px;border-bottom:1px solid var(--line)}
-.prow2 .dn{font:800 13px/1.2 var(--body);color:var(--muted);padding-top:2px}
+.prow2{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:start;padding:8px 2px;border-bottom:1px solid var(--line)}
+.prow2 .dn{font:800 15px/1 var(--disp);letter-spacing:.3px;color:var(--ink);background:var(--soft);border:1px solid var(--line);border-radius:7px;padding:5px 7px 4px;white-space:nowrap;min-width:58px;text-align:center;margin-top:1px}
 .prow2 .yd{font:800 17px var(--disp);font-variant-numeric:tabular-nums}
 .drow .logoimg,.drow .ph{width:24px;height:24px}
 .drow{display:grid;grid-template-columns:24px 1fr auto;gap:10px;align-items:center;padding:9px 2px;border:0;border-bottom:1px solid var(--line);width:100%;background:none;text-align:left;font:inherit;color:inherit}
@@ -380,7 +380,7 @@ const TEAM_LGS = LEAGUES.filter(l => l.type === 'team');
 const COLLEGE_LGS = LEAGUES.filter(l => l.college);
 const BOOKS = ['DraftKings','FanDuel','Bet365','BetMGM','Fanatics','Hard Rock','theScore','BetRivers','betPARX','Caesars','ESPN BET'];
 const BOOK_MAP = {draftkings:'DraftKings', fanduel:'FanDuel', betmgm:'BetMGM', caesars:'Caesars', espnbet:'ESPN BET', bet365:'Bet365', fanatics:'Fanatics', hardrock:'Hard Rock', hardrockbet:'Hard Rock', betrivers:'BetRivers', thescore:'theScore', betparx:'betPARX'};
-const BUILD = '2026-10-17 v32';
+const BUILD = '2026-10-17 v33';
 /* The Call Sheet lives on the same site (jibboo72.github.io), so its saved
    data and its published odds file are both readable from here. */
 const CS_KEY = 'nfl-call-sheet-v3';
@@ -667,7 +667,8 @@ function teamOf(c){
     logo: t.logo || (t.logos && t.logos[0] && t.logos[0].href) || '',
     score: scoreVal(c && c.score), rank: rank && rank < 99 ? rank : null,
     record: (c && ((c.records && c.records[0] && c.records[0].summary) || (c.record && c.record[0] && (c.record[0].summary || c.record[0].displayValue)))) || '',
-    winner: !!(c && c.winner)
+    winner: !!(c && c.winner),
+    color: t.color || '', alt: t.alternateColor || ''
   };
 }
 function norm(ev, lgKey){
@@ -1911,14 +1912,20 @@ function yteOf(pt, possAbbr){
   if (!m) return null;
   return same(m[1], possAbbr) ? 100 - +m[2] : +m[2];
 }
+/* Team colors from ESPN (hex without #). Text on them flips to dark when
+   the color is light (Packers gold, etc.). */
+function hexCol(c, fb){ c = String(c || '').replace('#', ''); return /^[0-9a-f]{6}$/i.test(c) ? '#' + c : fb; }
+function inkOn(hex){ const n = parseInt(hex.slice(1), 16), r = n >> 16, g = (n >> 8) & 255, b = n & 255; return (0.299 * r + 0.587 * g + 0.114 * b) > 165 ? '#111' : '#fff'; }
 function fieldSvg(o){
-  /* o: {ball, togo, start, offAbbr, defAbbr, rz} in yards from the offense's own goal line */
+  /* o: {ball, togo, start, offAbbr, defAbbr, offCol, defCol, rz, dd} in yards from the offense's own goal line */
   const W = 336, H = 104, EZ = 28, Y = 2.8, X = yd => EZ + Math.max(0, Math.min(100, yd)) * Y;
+  const oc = hexCol(o.offCol, '#1F4E8C'), dc = hexCol(o.defCol, '#8C1F2B');
   let g = `<rect x="0" y="0" width="${W}" height="${H}" fill="#2E7D32"/>`;
   for (let i = 0; i < 10; i++) if (i % 2) g += `<rect x="${X(i * 10)}" y="0" width="${10 * Y}" height="${H}" fill="#2B7430"/>`;
-  g += `<rect x="0" y="0" width="${EZ}" height="${H}" fill="#1F4E8C"/><rect x="${W - EZ}" y="0" width="${EZ}" height="${H}" fill="#8C1F2B"/>`;
-  g += `<text x="${EZ / 2}" y="${H / 2}" fill="#fff" font-family="Saira Condensed,system-ui" font-weight="800" font-size="13" text-anchor="middle" dominant-baseline="middle" transform="rotate(-90 ${EZ / 2} ${H / 2})">${esc(o.offAbbr || '')}</text>`;
-  g += `<text x="${W - EZ / 2}" y="${H / 2}" fill="#fff" font-family="Saira Condensed,system-ui" font-weight="800" font-size="13" text-anchor="middle" dominant-baseline="middle" transform="rotate(90 ${W - EZ / 2} ${H / 2})">${esc(o.defAbbr || '')}</text>`;
+  g += `<rect x="0" y="0" width="${EZ}" height="${H}" fill="${oc}"/><rect x="${W - EZ}" y="0" width="${EZ}" height="${H}" fill="${dc}"/>`;
+  g += `<rect x="${EZ - 2}" y="0" width="2" height="${H}" fill="rgba(255,255,255,.85)"/><rect x="${W - EZ}" y="0" width="2" height="${H}" fill="rgba(255,255,255,.85)"/>`;
+  g += `<text x="${EZ / 2}" y="${H / 2}" fill="${inkOn(oc)}" font-family="Saira Condensed,system-ui" font-weight="800" font-size="14" letter-spacing="1" text-anchor="middle" dominant-baseline="middle" transform="rotate(-90 ${EZ / 2} ${H / 2})">${esc(o.offAbbr || '')}</text>`;
+  g += `<text x="${W - EZ / 2}" y="${H / 2}" fill="${inkOn(dc)}" font-family="Saira Condensed,system-ui" font-weight="800" font-size="14" letter-spacing="1" text-anchor="middle" dominant-baseline="middle" transform="rotate(90 ${W - EZ / 2} ${H / 2})">${esc(o.defAbbr || '')}</text>`;
   for (let i = 1; i < 10; i++){
     const x = X(i * 10);
     g += `<line x1="${x}" y1="0" x2="${x}" y2="${H}" stroke="rgba(255,255,255,.55)" stroke-width="1"/>`;
@@ -1935,8 +1942,12 @@ function fieldSvg(o){
     if (o.togo !== null && o.togo !== undefined && o.ball + o.togo < 100) g += `<line x1="${X(o.ball + o.togo)}" y1="4" x2="${X(o.ball + o.togo)}" y2="${H - 4}" stroke="#F5D90A" stroke-width="3"/>`;
     g += `<line x1="${X(o.ball)}" y1="4" x2="${X(o.ball)}" y2="${H - 4}" stroke="#3A9BDC" stroke-width="3"/>`;
     g += `<ellipse cx="${X(o.ball)}" cy="${H / 2}" rx="8" ry="5" fill="#8B4A1E" stroke="#fff" stroke-width="1.2"/><path d="M${X(o.ball) - 3} ${H / 2}h6" stroke="#fff" stroke-width="1.2"/>`;
+    if (o.dd){
+      const w = o.dd.length * 7.4 + 14, cx = Math.max(EZ + w / 2 + 2, Math.min(W - EZ - w / 2 - 2, X(o.ball)));
+      g += `<rect x="${cx - w / 2}" y="5" width="${w}" height="19" rx="5" fill="rgba(0,0,0,.78)"/><text x="${cx}" y="18.5" fill="#fff" font-family="Saira Condensed,system-ui" font-weight="800" font-size="14" letter-spacing=".4" text-anchor="middle">${esc(o.dd)}</text>`;
+    }
   }
-  g += `<path d="M${W - EZ - 18} 10 l10 5 -10 5" fill="none" stroke="rgba(255,255,255,.9)" stroke-width="2"/>`;
+  g += `<path d="M${W - EZ - 16} ${H - 30} l9 5 -9 5" fill="none" stroke="rgba(255,255,255,.9)" stroke-width="2"/>`;
   return `<svg class="fieldsvg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Field: ${esc(o.offAbbr || '')} driving">${g}</svg>`;
 }
 function playRows(plays, ev){
@@ -1989,7 +2000,10 @@ function fieldTab(s, ev, p){
     html += `<div class="fsit"><div><div class="dd">${esc(parts[0] || dd || '—')}${si.isRedZone ? '<span class="rz">RED ZONE</span>' : ''}</div><div class="at">${parts[1] ? 'at ' + esc(parts[1]) + ' · ' : ''}${esc(offAbbr)} ball</div></div>
       <div class="to">${si.awayTimeouts !== undefined ? to(+si.awayTimeouts, ev.away) : ''}${si.homeTimeouts !== undefined ? to(+si.homeTimeouts, ev.home) : ''}</div></div>`;
   }
-  html += `<div>${fieldSvg({ball, togo: live && isCur ? togo : null, start, offAbbr, defAbbr, rz: live && isCur && !!si.isRedZone})}</div>`;
+  const ddShort = live && isCur ? String(si.shortDownDistanceText || (si.down ? `${['', '1st', '2nd', '3rd', '4th'][si.down] || ''} & ${si.distance}` : '')).replace(/&amp;/g, '&') : '';
+  /* colors: scoreboard team first, then any drive's team object (summary drives carry color too) */
+  const colOf = (t, ab) => (t && t.color) || ((all.find(x => x.team && x.team.abbreviation === ab) || {}).team || {}).color || '';
+  html += `<div>${fieldSvg({ball, togo: live && isCur ? togo : null, start, offAbbr, defAbbr, offCol: colOf(off, offAbbr), defCol: colOf(def, defAbbr), rz: live && isCur && !!si.isRedZone, dd: ddShort})}</div>`;
   const lp = live && isCur && si.lastPlay && si.lastPlay.text ? si.lastPlay.text : (lastP && lastP.text);
   if (lp) html += `<div class="lastp"><span class="lbl" style="display:block">${live && isCur ? 'Last play' : (dv.displayResult || dv.result || 'Drive result')}</span>${esc(lp)}</div>`;
   /* this drive */
