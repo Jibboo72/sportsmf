@@ -380,7 +380,7 @@ const TEAM_LGS = LEAGUES.filter(l => l.type === 'team');
 const COLLEGE_LGS = LEAGUES.filter(l => l.college);
 const BOOKS = ['DraftKings','FanDuel','Bet365','BetMGM','Fanatics','Hard Rock','theScore','BetRivers','betPARX','Caesars','ESPN BET'];
 const BOOK_MAP = {draftkings:'DraftKings', fanduel:'FanDuel', betmgm:'BetMGM', caesars:'Caesars', espnbet:'ESPN BET', bet365:'Bet365', fanatics:'Fanatics', hardrock:'Hard Rock', hardrockbet:'Hard Rock', betrivers:'BetRivers', thescore:'theScore', betparx:'betPARX'};
-const BUILD = '2026-10-17 v33';
+const BUILD = '2026-10-18 v34';
 /* The Call Sheet lives on the same site (jibboo72.github.io), so its saved
    data and its published odds file are both readable from here. */
 const CS_KEY = 'nfl-call-sheet-v3';
@@ -587,7 +587,10 @@ function esc(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','
 function ymd(d){ return d.getFullYear() + String(d.getMonth()+1).padStart(2,'0') + String(d.getDate()).padStart(2,'0'); }
 function fromYmd(s){ return new Date(+s.slice(0,4), +s.slice(4,6)-1, +s.slice(6,8)); }
 function addDays(s, n){ const d = fromYmd(s); d.setDate(d.getDate()+n); return ymd(d); }
-const today = () => ymd(new Date());
+/* The sports day runs until 3am: late West Coast games and overtime still
+   belong to "tonight", so the date doesn't flip at midnight. */
+const DAY_ROLL_HOUR = 3;
+const today = () => { const d = new Date(); if (d.getHours() < DAY_ROLL_HOUR) d.setDate(d.getDate() - 1); return ymd(d); };
 function dayLabel(s){
   const t = today();
   if (s === t) return 'Today';
@@ -1679,6 +1682,12 @@ VIEWS.tonight = {
     const rs = await Promise.allSettled([...keys].map(k => boardAll(LG[k], t).then(es => es.map(e => norm(e, k)))));
     const evs = []; let fails = 0;
     rs.forEach(r => r.status === 'fulfilled' ? evs.push(...r.value) : fails++);
+    /* Past 3am, anything from the night before that's still being played
+       (a 4-OT game, a rain delay) stays on Tonight until it goes final. */
+    if (new Date().getHours() < 8){
+      const yr = await Promise.allSettled([...keys].map(k => boardAll(LG[k], addDays(t, -1)).then(es => es.map(e => norm(e, k)))));
+      yr.forEach(r => { if (r.status === 'fulfilled') r.value.forEach(e => { if (e.state === 'in' && !evs.some(x => x.id === e.id)) evs.push(e); }); });
+    }
     if (keys.size && fails === keys.size) throw new Error('The scores feed is unreachable');
     gradeEvents(evs);
     learnLogos(evs);
