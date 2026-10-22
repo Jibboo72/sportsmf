@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
 <meta name="apple-mobile-web-app-title" content="SportsMF">
 <meta name="theme-color" content="#0D0F12">
 <title>SportsMF</title>
@@ -427,7 +428,7 @@ const TEAM_LGS = LEAGUES.filter(l => l.type === 'team');
 const COLLEGE_LGS = LEAGUES.filter(l => l.college);
 const BOOKS = ['DraftKings','FanDuel','Bet365','BetMGM','Fanatics','Hard Rock','theScore','BetRivers','betPARX','Caesars','ESPN BET'];
 const BOOK_MAP = {draftkings:'DraftKings', fanduel:'FanDuel', betmgm:'BetMGM', caesars:'Caesars', espnbet:'ESPN BET', bet365:'Bet365', fanatics:'Fanatics', hardrock:'Hard Rock', hardrockbet:'Hard Rock', betrivers:'BetRivers', thescore:'theScore', betparx:'betPARX'};
-const BUILD = '2026-10-22 v39';
+const BUILD = '2026-10-22 v40';
 /* The Call Sheet lives on the same site (jibboo72.github.io), so its saved
    data and its published odds file are both readable from here. */
 const CS_KEY = 'nfl-call-sheet-v3';
@@ -3793,6 +3794,9 @@ function applyTheme(){
   document.documentElement.dataset.theme = dark ? 'dark' : 'light';
   const m = document.querySelector('meta[name="theme-color"]');
   if (m) m.setAttribute('content', dark ? '#0D0F12' : '#FFFFFF');
+  /* home-screen app status bar: light text over the dark theme, dark text over the light one */
+  const sb = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+  if (sb) sb.setAttribute('content', dark ? 'black-translucent' : 'default');
 }
 if (darkQ && darkQ.addEventListener) darkQ.addEventListener('change', () => { if (S.theme === 'auto') applyTheme(); });
 applyTheme();
@@ -3834,6 +3838,10 @@ setInterval(() => document.querySelectorAll('#view .upd[data-ts]').forEach(el =>
 })();
 function setDate(){ $('#todayLbl').textContent = new Date().toLocaleDateString(undefined, {weekday:'short', month:'short', day:'numeric'}).replace(',', ' ·'); }
 setDate();
+/* Home-screen app: register the service worker (works on the live site only). */
+if ('serviceWorker' in navigator && location.protocol === 'https:' && /github\.io$/.test(location.hostname)){
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+}
 let tick = 0;
 setInterval(() => {
   tick++;
