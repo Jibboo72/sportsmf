@@ -161,6 +161,7 @@ button.lb{width:100%;border-left:0;border-right:0;border-top:0;background:none;t
 .fsit .to i{display:inline-block;width:12px;height:5px;border-radius:2px;background:var(--silver);margin-left:3px}
 .fsit .to i.on{background:var(--ink)}
 .rz{display:inline-block;margin-left:8px;padding:1px 6px;border-radius:5px;background:var(--red-bg);color:var(--red);font:800 11px var(--body);vertical-align:5px;letter-spacing:.4px}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 .bsit{border:1.5px solid var(--line);border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;gap:4px}
 .bsit .top{display:flex;justify-content:space-between;align-items:center;gap:8px}
 .bsit .clk{font:900 22px/1 var(--disp);letter-spacing:.4px;color:var(--ink)}
@@ -375,7 +376,8 @@ textarea{padding:10px 12px;min-height:110px;font-size:14px}
     </div>
   </header>
   <div id="ptr"><span></span></div>
-  <main id="view" aria-live="polite"></main>
+  <main id="view"></main>
+  <div id="srMsg" class="sr-only" role="status" aria-live="polite"></div>
   <nav class="tabs" aria-label="Main">
     <button data-tab="tonight"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z"/></svg>TONIGHT</button>
     <button data-tab="sports"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg>SPORTS</button>
@@ -425,7 +427,7 @@ const TEAM_LGS = LEAGUES.filter(l => l.type === 'team');
 const COLLEGE_LGS = LEAGUES.filter(l => l.college);
 const BOOKS = ['DraftKings','FanDuel','Bet365','BetMGM','Fanatics','Hard Rock','theScore','BetRivers','betPARX','Caesars','ESPN BET'];
 const BOOK_MAP = {draftkings:'DraftKings', fanduel:'FanDuel', betmgm:'BetMGM', caesars:'Caesars', espnbet:'ESPN BET', bet365:'Bet365', fanatics:'Fanatics', hardrock:'Hard Rock', hardrockbet:'Hard Rock', betrivers:'BetRivers', thescore:'theScore', betparx:'betPARX'};
-const BUILD = '2026-10-22 v38';
+const BUILD = '2026-10-22 v39';
 /* The Call Sheet lives on the same site (jibboo72.github.io), so its saved
    data and its published odds file are both readable from here. */
 const CS_KEY = 'nfl-call-sheet-v3';
@@ -1205,6 +1207,35 @@ function setP(patch){ Object.assign(cur().p, patch); render(); }
 /* setP keeps the list where it was only for in-place changes; filters jump to top. */
 let B = [];
 function h(fn){ B.push(fn); return B.length - 1; }
+/* Background refreshes patch the page in place instead of rebuilding it:
+   only text and attributes that changed are touched, so nothing flickers,
+   animations keep running, scroll positions (including sideways chip rows)
+   stay put, and a field you're typing in is left alone. */
+function morph(target, html){
+  const tpl = document.createElement('template');
+  tpl.innerHTML = html;
+  patchKids(target, tpl.content);
+}
+function patchKids(a, b){
+  const an = [...a.childNodes], bn = [...b.childNodes];
+  for (let i = 0; i < bn.length; i++){
+    const x = an[i], y = bn[i];
+    if (!x){ a.appendChild(y); continue; }
+    if (x.nodeType !== y.nodeType || x.nodeName !== y.nodeName){ a.replaceChild(y, x); continue; }
+    if (x.nodeType === 3 || x.nodeType === 8){ if (x.nodeValue !== y.nodeValue) x.nodeValue = y.nodeValue; continue; }
+    if (x.nodeType !== 1) continue;
+    patchAttrs(x, y);
+    if (x === document.activeElement && (x.tagName === 'INPUT' || x.tagName === 'TEXTAREA' || x.tagName === 'SELECT')) continue;
+    if (x.tagName === 'SELECT'){ x.innerHTML = y.innerHTML; const sv = y.querySelector('option[selected]'); if (sv) x.value = sv.value; continue; }
+    patchKids(x, y);
+  }
+  for (let i = an.length - 1; i >= bn.length; i--) a.removeChild(an[i]);
+}
+function patchAttrs(x, y){
+  for (const at of [...x.attributes]) if (!y.hasAttribute(at.name)) x.removeAttribute(at.name);
+  for (const at of [...y.attributes]) if (x.getAttribute(at.name) !== at.value) x.setAttribute(at.name, at.value);
+  if (x.tagName === 'INPUT' && x !== document.activeElement && x.value !== (y.getAttribute('value') ?? '')) x.value = y.getAttribute('value') ?? '';
+}
 document.addEventListener('click', e => {
   const t = e.target.closest('[data-h]');
   if (t && !t.disabled){ e.preventDefault(); const f = B[+t.dataset.h]; if (f) f(t, e); }
@@ -1216,7 +1247,7 @@ async function render(silent){
   document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === R.tab));
   const v = $('#view');
   const V = VIEWS[s.name];
-  if (!silent){ v.innerHTML = '<div class="empty">Loading…</div>'; $('#top').classList.toggle('inner', R.stack.length > 1); $('#navA').textContent = ''; $('#navB').textContent = ''; $('#navR').textContent = ''; $('#navBackLbl').textContent = navName(R.stack[R.stack.length - 2]); }
+  if (!silent){ v.setAttribute('aria-busy', 'true'); v.innerHTML = '<div class="empty">Loading…</div>'; $('#top').classList.toggle('inner', R.stack.length > 1); $('#navA').textContent = ''; $('#navB').textContent = ''; $('#navR').textContent = ''; $('#navBackLbl').textContent = navName(R.stack[R.stack.length - 2]); }
   const avail = v.clientHeight - 16;
   try {
     const data = V.load ? await V.load(s.p) : null;
@@ -1224,11 +1255,17 @@ async function render(silent){
     FITKEY = s.name + '|' + (s.p.tab || s.p.mode || '') + '|' + window.innerHeight;
     const keep = silent ? v.scrollTop : (s.scroll || 0);
     B = [];
-    v.innerHTML = V.build(s.p, data, avail);
-    v.scrollTop = keep;
+    const html = V.build(s.p, data, avail);
+    if (silent && v.firstChild) morph(v, html); else v.innerHTML = html;
+    if (!silent) v.scrollTop = keep;
     s.scroll = 0;
     setNav(V, s, data);
-    v.querySelectorAll('.chips.scrollx, .seg').forEach(c => { const on = c.querySelector('.chip.on, button.on'); if (on) c.scrollLeft = on.offsetLeft - c.offsetLeft - c.clientWidth / 2 + on.offsetWidth / 2; });
+    if (!silent){
+      v.querySelectorAll('.chips.scrollx, .seg').forEach(c => { const on = c.querySelector('.chip.on, button.on'); if (on) c.scrollLeft = on.offsetLeft - c.offsetLeft - c.clientWidth / 2 + on.offsetWidth / 2; });
+      /* screen readers hear the page name once, not every 10-second refresh */
+      const sr = $('#srMsg'); if (sr) sr.textContent = ($('#navA') && $('#navA').textContent) || NAV_NAMES[s.name] || '';
+    }
+    v.removeAttribute('aria-busy');
     if (V.after) V.after(s.p, data, v);
   } catch (err){
     if (seq !== seqNo) return;
@@ -2488,7 +2525,7 @@ VIEWS.game = {
   },
   after(p){
     const sel = document.getElementById('mktSel');
-    if (sel) sel.addEventListener('change', () => setP({mkt: sel.value, page: 0}));
+    if (sel) sel.onchange = () => setP({mkt: sel.value, page: 0});
   },
   navSmall(p, d){ return esc(d.ev.away.abbr || d.ev.away.short) + ' @ ' + esc(d.ev.home.abbr || d.ev.home.short); },
   navTitle(p, d){
