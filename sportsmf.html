@@ -19,14 +19,14 @@
 :root{
   --ink:#0B0B0C;--silver:#B0B7BC;--line:#D9DDE0;--soft:#F4F6F7;--muted:#4E565C;--dim:#6B7378;
   --blue:#0076B6;--blue2:#3A9BDC;--red:#D50A0A;--green:#14A44D;--green-t:#0E8A3E;--green-bg:#E8F6EE;--red-bg:#FDECEC;
-  --bg:#FFFFFF;--card:#FFFFFF;--on-ink:#FFFFFF;--court:#E9C9A0;--paint:#DDB487;--courtline:#FFFFFF;
+  --bg:#FFFFFF;--card:#FFFFFF;--on-ink:#FFFFFF;--court:#E9C9A0;--paint:#DDB487;--courtline:#FFFFFF;--ice:#F4F8FB;--rinkline:#B8C4CE;
   --disp:'Saira Condensed',system-ui,sans-serif;
   --body:'Geist',system-ui,-apple-system,'Segoe UI',sans-serif;
 }
 :root[data-theme="dark"]{
   --ink:#F1F3F4;--silver:#59616A;--line:#2A2F35;--soft:#191C21;--muted:#A6AEB5;--dim:#8B949B;
   --blue:#3A9BDC;--blue2:#6CB8EA;--red:#FF5252;--green:#22C064;--green-t:#45D98A;--green-bg:#12301F;--red-bg:#3A1717;
-  --bg:#0D0F12;--card:#15181D;--on-ink:#0D0F12;--court:#2A2219;--paint:#3A2D1F;--courtline:rgba(255,255,255,.55);color-scheme:dark;
+  --bg:#0D0F12;--card:#15181D;--on-ink:#0D0F12;--court:#2A2219;--paint:#3A2D1F;--courtline:rgba(255,255,255,.55);--ice:#1A2129;--rinkline:#3C4A57;color-scheme:dark;
 }
 :root[data-theme="dark"] .sheet .bg{background:rgba(0,0,0,.6)}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -163,6 +163,14 @@ button.lb{width:100%;border-left:0;border-right:0;border-top:0;background:none;t
 .fsit .to i.on{background:var(--ink)}
 .rz{display:inline-block;margin-left:8px;padding:1px 6px;border-radius:5px;background:var(--red-bg);color:var(--red);font:800 11px var(--body);vertical-align:5px;letter-spacing:.4px}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.rinksvg{width:100%;display:block}
+.sogrow{display:flex;justify-content:space-between;align-items:baseline;font:600 15px var(--body);color:var(--muted);margin-top:2px}.sogrow b{font:900 24px var(--disp);color:var(--ink)}
+.ptbl{border:1.5px solid var(--line);border-radius:14px;padding:2px 12px}
+.ptr2{display:grid;grid-template-columns:1fr repeat(var(--pc),44px) 44px;align-items:center;padding:8px 0;border-top:1px solid var(--line);font:700 17px var(--disp);font-variant-numeric:tabular-nums}
+.ptr2.hd{border-top:0;font:800 12px var(--disp);letter-spacing:.6px;color:var(--muted)}
+.ptr2>span:not(:first-child){text-align:center}.ptr2 .t{font-weight:900}
+.ptr2>span:first-child{display:flex;align-items:center;gap:8px}.ptr2 img{width:22px;height:22px}
+.ptr2 small{display:block;font:800 10px var(--disp);color:var(--green-t);letter-spacing:.4px}
 .phero{display:flex;align-items:center;gap:14px}
 .phead{width:72px;height:72px;border-radius:50%;object-fit:cover;background:var(--soft);flex:none}
 .phero .pn{font:900 30px/1.05 var(--disp);letter-spacing:.3px}
@@ -440,7 +448,7 @@ const TEAM_LGS = LEAGUES.filter(l => l.type === 'team');
 const COLLEGE_LGS = LEAGUES.filter(l => l.college);
 const BOOKS = ['DraftKings','FanDuel','Bet365','BetMGM','Fanatics','Hard Rock','theScore','BetRivers','betPARX','Caesars','ESPN BET'];
 const BOOK_MAP = {draftkings:'DraftKings', fanduel:'FanDuel', betmgm:'BetMGM', caesars:'Caesars', espnbet:'ESPN BET', bet365:'Bet365', fanatics:'Fanatics', hardrock:'Hard Rock', hardrockbet:'Hard Rock', betrivers:'BetRivers', thescore:'theScore', betparx:'betPARX'};
-const BUILD = '2026-10-22 v41';
+const BUILD = '2026-10-22 v42';
 /* The Call Sheet lives on the same site (jibboo72.github.io), so its saved
    data and its published odds file are both readable from here. */
 const CS_KEY = 'nfl-call-sheet-v3';
@@ -2495,6 +2503,179 @@ function courtTab(s, ev, p){
   return html;
 }
 
+/* ================= HOCKEY RINK TRACKER =================
+   ESPN hockey plays carry rink coordinates in feet from center ice
+   (x −100…100, y −42.5…42.5). Teams switch ends each period, so every shot
+   is folded to one end per team: away shots on the left, home on the right. */
+const rinkPerLen = per => per <= 3 ? 1200 : 300;
+function rinkElapsed(per, clk){ let t = 0; for (let i = 1; i < per; i++) t += rinkPerLen(i); return t + Math.max(0, rinkPerLen(per) - clockSec(clk)); }
+const rinkPer = n => n <= 3 ? ['1st', '2nd', '3rd'][n - 1] : n === 4 ? 'OT' : n === 5 ? 'SO' : (n - 3) + 'OT';
+function shotKind(x){
+  const t = String((x.type && x.type.text) || '').toLowerCase();
+  if (x.scoringPlay || t === 'goal') return 'goal';
+  if (/blocked/.test(t)) return 'blocked';
+  if (/missed|wide|post|crossbar/.test(t)) return 'missed';
+  if (/^shot|shot on goal/.test(t)) return 'sog';
+  return null;
+}
+function rinkShots(ev, plays){
+  return plays.map(x => {
+    const k = shotKind(x); if (!k || x._per > 4) return null;
+    const sd = playSide(x, ev); if (!sd) return null;
+    const c = x.coordinate || {}; let cx = +c.x, cy = +c.y;
+    const ok = isFinite(cx) && isFinite(cy) && Math.abs(cx) <= 100 && Math.abs(cy) <= 45 && !(cx === 0 && cy === 0);
+    if (ok){
+      /* fold to the attacking end: away attacks left (x<0), home attacks right */
+      if ((sd === 'home' && cx < 0) || (sd === 'away' && cx > 0)){ cx = -cx; cy = -cy; }
+    }
+    return {k, sd, x: ok ? cx : null, y: ok ? cy : null, per: x._per, t: rinkElapsed(x._per, x.clock), text: x.text || ''};
+  }).filter(Boolean);
+}
+function rinkSvg(ev, shots, who, all){
+  const W = 336, H = 143, S = W / 200, X = v => ((v + 100) * S).toFixed(1), Y = v => ((v + 42.5) * S).toFixed(1);
+  const ln = 'stroke="var(--rinkline)" fill="none"';
+  let g = `<rect x="1" y="1" width="${W - 2}" height="${H - 2}" rx="${28 * S}" fill="var(--ice)" stroke="var(--rinkline)" stroke-width="2"/>`;
+  g += `<line x1="${X(0)}" y1="1" x2="${X(0)}" y2="${H - 1}" stroke="#D33" stroke-width="2.5" stroke-opacity=".7"/>`;
+  [-25, 25].forEach(b => { g += `<line x1="${X(b)}" y1="1" x2="${X(b)}" y2="${H - 1}" stroke="#2F6FD6" stroke-width="2.5" stroke-opacity=".7"/>`; });
+  [-89, 89].forEach(gl => { g += `<line x1="${X(gl)}" y1="${Y(-38)}" x2="${X(gl)}" y2="${Y(38)}" stroke="#D33" stroke-width="1.2" stroke-opacity=".7"/>`; });
+  g += `<circle cx="${X(0)}" cy="${Y(0)}" r="${15 * S}" stroke="#2F6FD6" stroke-opacity=".6" fill="none" stroke-width="1.2"/>`;
+  [[-69, -22], [-69, 22], [69, -22], [69, 22]].forEach(([fx, fy]) => { g += `<circle cx="${X(fx)}" cy="${Y(fy)}" r="${15 * S}" stroke="#D33" stroke-opacity=".45" fill="none" stroke-width="1"/><circle cx="${X(fx)}" cy="${Y(fy)}" r="2" fill="#D33" fill-opacity=".6"/>`; });
+  [-89, 89].forEach(gl => { const d = gl < 0 ? -1 : 1; g += `<path d="M${X(gl)} ${Y(-4)} A${6 * S} ${6 * S} 0 0 ${d < 0 ? 1 : 0} ${X(gl)} ${Y(4)}" fill="#7FB3FF" fill-opacity=".35" stroke="#D33" stroke-opacity=".6"/><rect x="${d < 0 ? X(gl - 3.3) : X(gl)}" y="${Y(-3)}" width="${(3.3 * S).toFixed(1)}" height="${(6 * S).toFixed(1)}" fill="none" ${ln} stroke-width="1.4"/>`; });
+  g += `<text x="${X(-60)}" y="${H - 6}" text-anchor="middle" font-size="10" font-weight="800" fill="var(--muted)" font-family="Saira Condensed,system-ui">${esc(ev.away.abbr)} SHOTS</text><text x="${X(60)}" y="${H - 6}" text-anchor="middle" font-size="10" font-weight="800" fill="var(--muted)" font-family="Saira Condensed,system-ui">${esc(ev.home.abbr)} SHOTS</text>`;
+  const list = shots.filter(s => s.x !== null && (who === 'both' || s.sd === who) && (s.k === 'goal' || s.k === 'sog' || (all && s.k === 'missed')));
+  list.forEach(s => {
+    const c = teamCol(ev[s.sd], s.sd === 'home' ? '#3A9BDC' : '#E8833A'), px = X(s.x), py = Y(s.y);
+    if (s.k === 'goal') g += `<circle cx="${px}" cy="${py}" r="7" fill="${c}" stroke="#fff" stroke-width="2"/><circle cx="${px}" cy="${py}" r="2.4" fill="#fff"/>`;
+    else if (s.k === 'sog') g += `<circle cx="${px}" cy="${py}" r="4" fill="${c}" fill-opacity=".85" stroke="#fff" stroke-width="1"/>`;
+    else g += `<g stroke="${c}" stroke-width="1.8" stroke-opacity=".7"><path d="M${+px - 3} ${+py - 3} l6 6 M${+px + 3} ${+py - 3} l-6 6"/></g>`;
+  });
+  const last = list[list.length - 1];
+  if (last) g += `<circle class="lastshot" cx="${X(last.x)}" cy="${Y(last.y)}" r="10" fill="none" stroke="var(--ink)" stroke-width="1.6"/>`;
+  return `<svg class="rinksvg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Shot map">${g}</svg>`;
+}
+/* cumulative shots on goal for both teams through the game, goals marked */
+function shotRaceSvg(ev, shots, curT, pers){
+  const W = 336, H = 120, P = 8;
+  let total = 0; for (let i = 1; i <= pers; i++) total += rinkPerLen(i);
+  const on = shots.filter(s => s.k === 'sog' || s.k === 'goal');
+  const cnt = {home: 0, away: 0}; on.forEach(s => cnt[s.sd]++);
+  const mx = Math.max(10, cnt.home, cnt.away) + 2;
+  const X = t => P + (W - 2 * P) * Math.min(1, t / total), Y = v => H - 14 - (v / mx) * (H - 28);
+  let g = '', acc = 0;
+  for (let i = 1; i < pers; i++){ acc += rinkPerLen(i); g += `<line x1="${X(acc)}" y1="6" x2="${X(acc)}" y2="${H - 14}" stroke="var(--line)" stroke-dasharray="3 3"/>`; }
+  ['away', 'home'].forEach(sd => {
+    const c = teamCol(ev[sd], sd === 'home' ? '#3A9BDC' : '#E8833A');
+    let n = 0, d = `M${X(0)} ${Y(0)}`, marks = '';
+    on.filter(s => s.sd === sd).forEach(s => { d += ` L${X(s.t).toFixed(1)} ${Y(n).toFixed(1)}`; n++; d += ` L${X(s.t).toFixed(1)} ${Y(n).toFixed(1)}`; if (s.k === 'goal') marks += `<circle cx="${X(s.t).toFixed(1)}" cy="${Y(n).toFixed(1)}" r="5" fill="${c}" stroke="#fff" stroke-width="1.6"/>`; });
+    d += ` L${X(curT === null ? total : curT).toFixed(1)} ${Y(n).toFixed(1)}`;
+    g += `<path d="${d}" fill="none" stroke="${c}" stroke-width="2.4" stroke-linejoin="round"/>${marks}`;
+    g += `<text x="${(X(curT === null ? total : curT) - 3).toFixed(1)}" y="${(Y(n) - 6).toFixed(1)}" text-anchor="end" font-size="11" font-weight="800" fill="${c}" font-family="Saira Condensed,system-ui">${esc(ev[sd].abbr)} ${n}</text>`;
+  });
+  for (let i = 1; i <= pers; i++){ let a = 0; for (let j = 1; j < i; j++) a += rinkPerLen(j); g += `<text x="${((X(a) + X(a + rinkPerLen(i))) / 2).toFixed(1)}" y="${H - 2}" text-anchor="middle" font-size="10" font-weight="700" fill="var(--muted)" font-family="Saira Condensed,system-ui">${rinkPer(i)}</text>`; }
+  return `<svg class="flowsvg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Shots on goal through the game">${g}</svg>`;
+}
+function teamCompare(s, ev, rows){
+  const out = rows.map(([lbl, nm, pct, low, combo]) => {
+    let a = teamStatVal(s, 'away', ev, nm), hm = teamStatVal(s, 'home', ev, nm);
+    if (combo){ const a2 = teamStatVal(s, 'away', ev, combo), h2 = teamStatVal(s, 'home', ev, combo); if (a !== null && a2 !== null){ a = `${a}/${a2}`; hm = `${hm}/${h2}`; } }
+    if (a === null || hm === null) return '';
+    const num = v => String(v).includes('/') ? (() => { const [m, t] = String(v).split('/').map(Number); return t ? m / t * 100 : 0; })() : parseFloat(v) || 0;
+    const av = num(a), hv = num(hm), sum = av + hv || 1;
+    const better = low ? (av < hv ? 'away' : hv < av ? 'home' : '') : (av > hv ? 'away' : hv > av ? 'home' : '');
+    return `<div class="cmp"><span class="${better === 'away' ? 'b' : ''}">${esc(a)}</span><span class="l">${esc(lbl)}</span><span class="${better === 'home' ? 'b' : ''}">${esc(hm)}</span>
+      <div class="cbar"><i style="width:${(av / sum * 100).toFixed(1)}%;background:${teamCol(ev.away, '#E8833A')}"></i><i style="width:${(hv / sum * 100).toFixed(1)}%;background:${teamCol(ev.home, '#3A9BDC')}"></i></div></div>`;
+  }).filter(Boolean);
+  return out.length ? `<div><div class="lbl" style="margin-bottom:6px">Team comparison</div><div class="cmpw"><div class="cmp hd"><span>${esc(ev.away.abbr)}</span><span></span><span>${esc(ev.home.abbr)}</span></div>${out.join('')}</div></div>` : '';
+}
+function rinkLeaders(s, ev){
+  const groups = (s.boxscore && s.boxscore.players) || [];
+  const hit = betNames(ev);
+  const side = sd => {
+    const tg = groups.find(g => g.team && String(g.team.id) === String(ev[sd].id));
+    if (!tg) return '';
+    const ppl = [];
+    (tg.statistics || []).forEach(c => {
+      const up = (c.labels || c.names || []).map(l => String(l).toUpperCase());
+      if (up.includes('SV')) return;
+      const ix = k => up.indexOf(k), sogI = ix('SOG') >= 0 ? ix('SOG') : ix('S');
+      (c.athletes || []).forEach(a => { if ((a.stats || []).length) ppl.push({a, g: +a.stats[ix('G')] || 0, as: +a.stats[ix('A')] || 0, sog: sogI >= 0 ? +a.stats[sogI] || 0 : 0}); });
+    });
+    ppl.sort((x, y) => (y.g + y.as) - (x.g + x.as) || y.sog - x.sog);
+    const tm = ev[sd];
+    return `<div class="ldrs"><div class="lt">${tm.logo ? logo(tm.logo) : ''}<b>${esc(tm.abbr || tm.short)}</b></div>${ppl.slice(0, 3).map(x => `<div class="ld1${hit(x.a.athlete) ? ' bet' : ''}" role="button" data-h="${h(() => go('player', {lg: ev.lg, aid: (x.a.athlete || {}).id, name: (x.a.athlete || {}).displayName || '', team: String(tm.id), teamAbbr: tm.abbr}))}"><span class="nm">${hit(x.a.athlete) ? '★ ' : ''}${esc(boxName(x.a.athlete || {}))}</span><span class="ln"><b>${x.g}</b> G · ${x.as} A · ${x.sog} SOG</span></div>`).join('')}</div>`;
+  };
+  const a = side('away'), b = side('home');
+  return a || b ? `<div><div class="lbl" style="margin-bottom:6px">Leaders</div><div class="ldrw">${a}${b}</div></div>` : '';
+}
+function rinkTab(s, ev, p){
+  const plays = hoopsPlays(s);
+  if (!plays.length) return `<div class="empty">${ev.state === 'pre' ? 'The rink view starts at puck drop.' : 'No plays yet.'}</div>`;
+  const live = ev.state === 'in';
+  const shots = rinkShots(ev, plays);
+  const last = plays[plays.length - 1];
+  const curPer = last._per, curT = live ? rinkElapsed(curPer, last.clock) : null;
+  const hs = +ev.home.score || 0, as = +ev.away.score || 0, m = hs - as;
+  const sog = sd => shots.filter(x => x.sd === sd && (x.k === 'sog' || x.k === 'goal')).length;
+  const att = sd => shots.filter(x => x.sd === sd).length;
+  let html = '';
+  /* situation */
+  const leadTxt = m === 0 ? (live ? 'Tied' : 'Final') : `${esc((m > 0 ? ev.home : ev.away).abbr)} ${live ? 'leads' : 'won'} ${Math.max(hs, as)}-${Math.min(hs, as)}`;
+  const goals = plays.filter(x => x.scoringPlay);
+  const lg = goals[goals.length - 1];
+  html += `<div class="bsit hsit"><div class="top"><span class="clk">${live ? esc(rinkPer(curPer) + ' · ' + ((last.clock && last.clock.displayValue) || '')) : esc(ev.detail || 'Final')}</span></div>
+    <div class="lead">${leadTxt}</div>
+    <div class="sogrow"><span><b>${sog('away')}</b> ${esc(ev.away.abbr)} SOG</span><span class="sub">attempts ${att('away')}–${att('home')}</span><span><b>${sog('home')}</b> ${esc(ev.home.abbr)} SOG</span></div>
+    ${lg ? `<div class="facts">Last goal: ${esc(lg.text)} (${esc(rinkPer(lg._per))} ${esc((lg.clock && lg.clock.displayValue) || '')})</div>` : ''}</div>`;
+  if (live && last && last.text) html += `<div class="lastp"><span class="lbl" style="display:block">Last play</span>${esc(last.text)}</div>`;
+  html += hoopsPropBars(ev, s);
+  /* shot map */
+  if (shots.filter(x => x.x !== null).length >= 3){
+    const who = ['home', 'away', 'both'].includes(p.who) ? p.who : 'both';
+    const all = !!p.allAtt;
+    const chip = (k, l) => `<button class="chip ${who === k ? 'on' : ''}" data-h="${h(() => setP({who: k}))}">${l}</button>`;
+    html += `<div><div class="row" style="margin-bottom:8px"><span class="lbl">Shot map</span><div class="chips sm" style="margin:0">${chip('away', esc(ev.away.abbr))}${chip('home', esc(ev.home.abbr))}${chip('both', 'Both')}</div></div>
+      ${rinkSvg(ev, shots, who, all)}
+      <div class="row" style="margin-top:6px"><span class="sub">◉ goal · ● on goal${all ? ' · ✕ missed' : ''} · ring = latest</span><button class="linkbtn" data-h="${h(() => setP({allAtt: !all}))}">${all ? 'On goal only' : 'Show misses'}</button></div></div>`;
+  }
+  /* by period */
+  const pers = Math.max(3, curPer > 4 ? 4 : curPer);
+  const per = (sd, n, f) => shots.filter(x => x.sd === sd && x.per === n && f(x)).length;
+  const cols = []; for (let i = 1; i <= pers; i++) cols.push(i);
+  const prow = (sd) => `<div class="ptr2"><span>${ev[sd].logo ? logo(ev[sd].logo) : ''}<b>${esc(ev[sd].abbr)}</b></span>${cols.map(n => `<span>${per(sd, n, x => x.k === 'sog' || x.k === 'goal')}${per(sd, n, x => x.k === 'goal') ? `<small>${per(sd, n, x => x.k === 'goal')}G</small>` : ''}</span>`).join('')}<span class="t">${sog(sd)}</span></div>`;
+  html += `<div><div class="lbl" style="margin-bottom:6px">Shots on goal by period</div><div class="ptbl" style="--pc:${cols.length}"><div class="ptr2 hd"><span></span>${cols.map(n => `<span>${rinkPer(n)}</span>`).join('')}<span class="t">T</span></div>${prow('away')}${prow('home')}</div></div>`;
+  if (shots.length >= 4) html += `<div><div class="lbl" style="margin-bottom:6px">Shot race</div>${shotRaceSvg(ev, shots, curT, pers)}</div>`;
+  const wpA = s.winprobability || [];
+  if (wpA.length && live){
+    const hw = Math.round((wpA[wpA.length - 1].homeWinPercentage || 0) * 100);
+    html += `<div><div class="lbl">Win probability</div><div class="wp"><div style="width:${100 - hw}%;background:${teamCol(ev.away, '#E8833A')}"></div><div style="flex:1;background:${teamCol(ev.home, '#3A9BDC')}"></div></div><div class="row" style="margin-top:6px;font:600 15px var(--body)"><span>${esc(ev.away.abbr)} ${100 - hw}%</span><span>${esc(ev.home.abbr)} ${hw}%</span></div></div>`;
+  }
+  html += rinkLeaders(s, ev);
+  html += teamCompare(s, ev, [['Shots', ['shotsTotal', 'Shots']], ['Power play', ['powerPlayGoals', 'Power Play Goals'], null, false, ['powerPlayOpportunities', 'Power Play Opportunities']], ['Faceoff %', ['faceoffPercent', 'Faceoff Win Percentage', 'FO%']],
+    ['Hits', ['hits', 'Hits']], ['Blocked', ['blockedShots', 'Blocked Shots']], ['Takeaways', ['takeaways', 'Takeaways']], ['Giveaways', ['giveaways', 'Giveaways'], null, true], ['PIM', ['penaltyMinutes', 'Penalty Minutes', 'PIM'], null, true]]);
+  /* play by play */
+  const f = ['all', 'key', 'shots', 'mine'].includes(p.pf) ? p.pf : 'key';
+  const hit = betNames(ev), hasMine = betsFor(ev).some(b => b.type === 'prop');
+  let list = plays.filter(x => x.text);
+  if (f === 'key') list = list.filter(x => x.scoringPlay || /penalty|period|shootout|challenge|review/i.test((x.type && x.type.text) || '') || /^end of|^start of/i.test(x.text || ''));
+  if (f === 'shots') list = list.filter(x => shotKind(x));
+  if (f === 'mine'){
+    const mineN = [];
+    ((s.boxscore && s.boxscore.players) || []).forEach(tg => (tg.statistics || []).forEach(c => (c.athletes || []).forEach(a => { if (a.athlete && hit(a.athlete)) mineN.push(String(a.athlete.displayName || '').toLowerCase()); })));
+    list = list.filter(x => { const t = String(x.text).toLowerCase(); return mineN.some(nm => nm && t.includes(nm)); });
+  }
+  const n = p.pn || 25, shown = list.slice(-n).reverse();
+  const pchip = (k, l) => `<button class="chip ${f === k ? 'on' : ''}" data-h="${h(() => setP({pf: k, pn: 25}))}">${l}</button>`;
+  const rows = shown.map(x => {
+    const sd = playSide(x, ev), c = sd ? teamCol(ev[sd], sd === 'home' ? '#3A9BDC' : '#E8833A') : 'var(--line)';
+    const sc = x.scoringPlay ? `<span class="sc"><b class="${sd === 'away' ? 'hi' : ''}">${esc(x.awayScore)}</b>-<b class="${sd === 'home' ? 'hi' : ''}">${esc(x.homeScore)}</b></span>` : '<span class="sc"></span>';
+    return `<div class="bprow${x.scoringPlay ? ' scp' : ''}" style="--tc:${c}"><span class="clk">${esc(rinkPer(x._per))}<br>${esc((x.clock && x.clock.displayValue) || '')}</span><span class="tx">${esc(x.text)}</span>${sc}</div>`;
+  }).join('');
+  html += `<div><div class="row" style="margin-bottom:6px"><span class="lbl">Play-by-play</span><div class="chips sm" style="margin:0">${pchip('key', 'Key')}${pchip('shots', 'Shots')}${pchip('all', 'All')}${hasMine ? pchip('mine', '★') : ''}</div></div>
+    ${rows || '<div class="empty" style="padding:10px">Nothing here yet.</div>'}
+    ${list.length > n ? `<button class="linkbtn" style="margin-top:8px" data-h="${h(() => setP({pn: n + 50}))}">Show ${Math.min(50, list.length - n)} more</button>` : ''}</div>`;
+  return html;
+}
+
 /* ================= PLAYER PAGES =================
    Tap a player in any box score. His recent games are read from the same
    scoreboard and box-score feeds the rest of the app uses (the ones that
@@ -2664,7 +2845,7 @@ function betSub(p, lg){
 }
 VIEWS.game = {
   async load(p){
-    const s = await getJSON(`${BASE}${p.path}/summary?event=${p.id}`, (/football/.test(p.path) && (!p.tab || p.tab === 'field')) || (/basketball/.test(p.path) && (!p.tab || p.tab === 'court')) ? 9000 : 20000);
+    const s = await getJSON(`${BASE}${p.path}/summary?event=${p.id}`, (/football/.test(p.path) && (!p.tab || p.tab === 'field')) || (/basketball/.test(p.path) && (!p.tab || p.tab === 'court')) || (/hockey/.test(p.path) && (!p.tab || p.tab === 'rink')) ? 9000 : 20000);
     const comp = (s.header && s.header.competitions && s.header.competitions[0]) || {};
     const ev = norm({id: p.id, date: comp.date, competitions:[comp], status: comp.status, _path: p.path}, p.lg);
     if (!ev.sit.text && s.situation){
@@ -2727,10 +2908,11 @@ VIEWS.game = {
     if (t === 'pitches') body = pitchesTab(d, ev, p);
     if (t === 'field') body = fieldTab(d.s, ev, p);
     if (t === 'court') body = courtTab(d.s, ev, p);
+    if (t === 'rink') body = rinkTab(d.s, ev, p);
     if (t === 'news') body = gameNewsTab(s, ev, p, avail);
     let strip = '';
     /* on the court view, props already show as progress bars up top */
-    const sbets = t === 'court' ? bets.filter(b => { const r = b.type === 'prop' ? propRead(b, ev, s) : null; return !(r && r.val !== undefined); }) : bets;
+    const sbets = t === 'court' || t === 'rink' ? bets.filter(b => { const r = b.type === 'prop' ? propRead(b, ev, s) : null; return !(r && r.val !== undefined); }) : bets;
     if (t !== 'bet' && sbets.length){
       const bets = sbets;
       if (bets.length <= 2) strip = `<div class="bstrip">${bets.map(b => betBand(b, ev, 'button', tapBet(b), s)).join('')}</div>`;
@@ -2753,6 +2935,7 @@ function gameTabs(ev){
   if (ev.lg === 'mlb') return [['pitches', 'PITCHES'], ['scoring', 'SCORING'], ['box', 'BOX'], ['bet', 'BET'], ['news', 'NEWS']];
   if (/football/.test(ev.path || '')) return [['field', 'FIELD'], ['scoring', 'SCORING'], ['box', 'BOX'], ['bet', 'BET'], ['news', 'NEWS']];
   if (/basketball/.test(ev.path || '')) return [['court', 'COURT'], ['box', 'BOX'], ['bet', 'BET'], ['news', 'NEWS']];
+  if (/hockey/.test(ev.path || '')) return [['rink', 'RINK'], ['box', 'BOX'], ['bet', 'BET'], ['news', 'NEWS']];
   return [['scoring', 'SCORING'], ['box', 'BOX'], ['plays', 'PLAYS'], ['bet', 'BET'], ['news', 'NEWS']];
 }
 function gameTab(p, ev){
@@ -2761,6 +2944,8 @@ function gameTab(p, ev){
   if (want === 'plays' && ks.includes('field')) return 'field';
   if ((want === 'plays' || want === 'scoring') && ks.includes('court')) return 'court';
   if (ks.includes('court') && !ks.includes(want)) return ev.state === 'pre' ? 'bet' : 'court';
+  if ((want === 'plays' || want === 'scoring') && ks.includes('rink')) return 'rink';
+  if (ks.includes('rink') && !ks.includes(want)) return ev.state === 'pre' ? 'bet' : 'rink';
   return ks.includes(want) ? want : (ev.state === 'pre' ? 'bet' : ev.lg === 'mlb' ? 'pitches' : ks.includes('field') && ev.state === 'in' ? 'field' : 'scoring');
 }
 /* Lines, props and your power ratings in one place, plus your bets. */
@@ -4023,7 +4208,8 @@ setInterval(() => {
   /* Live pitch tracker: every 10 seconds. Everything else: every 30. */
   const pitchLive = n === 'game' && ((c.p.lg === 'mlb' && (!c.p.tab || c.p.tab === 'pitches') && c.p.ab === undefined && document.querySelector('#view .mlbsit'))
     || (/football/.test(c.p.path || '') && (!c.p.tab || c.p.tab === 'field') && c.p.drive === undefined && document.querySelector('#view .fsit'))
-    || (/basketball/.test(c.p.path || '') && (!c.p.tab || c.p.tab === 'court') && document.querySelector('#view .bsit') && document.querySelector('#view .livec')));
+    || (/basketball/.test(c.p.path || '') && (!c.p.tab || c.p.tab === 'court') && document.querySelector('#view .bsit') && document.querySelector('#view .livec'))
+    || (/hockey/.test(c.p.path || '') && (!c.p.tab || c.p.tab === 'rink') && document.querySelector('#view .hsit') && document.querySelector('#view .livec')));
   if (pitchLive){ render(true); return; }
   if (tick % 3) return;
   setDate();
