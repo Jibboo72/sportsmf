@@ -425,7 +425,7 @@ const TEAM_LGS = LEAGUES.filter(l => l.type === 'team');
 const COLLEGE_LGS = LEAGUES.filter(l => l.college);
 const BOOKS = ['DraftKings','FanDuel','Bet365','BetMGM','Fanatics','Hard Rock','theScore','BetRivers','betPARX','Caesars','ESPN BET'];
 const BOOK_MAP = {draftkings:'DraftKings', fanduel:'FanDuel', betmgm:'BetMGM', caesars:'Caesars', espnbet:'ESPN BET', bet365:'Bet365', fanatics:'Fanatics', hardrock:'Hard Rock', hardrockbet:'Hard Rock', betrivers:'BetRivers', thescore:'theScore', betparx:'betPARX'};
-const BUILD = '2026-10-20 v37';
+const BUILD = '2026-10-22 v38';
 /* The Call Sheet lives on the same site (jibboo72.github.io), so its saved
    data and its published odds file are both readable from here. */
 const CS_KEY = 'nfl-call-sheet-v3';
@@ -497,8 +497,14 @@ function csBets(){
       const u = S.unit || 1;
       let matches = [b.match].concat((b.legs || []).map(l => l && l.match)).filter(m => m && m.includes('@'));
       let gdate = b.gdate || '';
+      /* A player's name only says which team he plays for. The bet has to
+         have been placed in the run-up to this game (within 6 days before
+         kickoff, or during it), or it's an old bet on an earlier game. */
       if (!matches.length){
-        const hits = playerGamesIn([b.match, b.pickWho, b.desc].concat((b.legs || []).map(l => l && ((l.match || '') + ' ' + (l.desc || '')))).join(' | '));
+        const nowWk = csWeekNow();
+        const fresh = x => b.ts ? (x.start ? b.ts >= x.start - 6 * 864e5 && b.ts <= x.start + 6 * 3600e3 : Date.now() - b.ts < 6 * 864e5)
+          : (b.wk !== undefined && b.wk !== null && nowWk !== null && Number(b.wk) === Number(nowWk));
+        const hits = playerGamesIn([b.match, b.pickWho, b.desc].concat((b.legs || []).map(l => l && ((l.match || '') + ' ' + (l.desc || '')))).join(' | ')).filter(fresh);
         matches = [...new Set(hits.map(x => x.match))];
         if (!gdate && hits.length) gdate = hits[0].gdate;
       }
@@ -591,7 +597,7 @@ async function loadPlayerGames(){
       const lg = /ncaa|cfb|college/i.test(g.league || '') ? 'cfb' : 'nfl';
       (g.props || []).forEach(pr => {
         const nm = pName(String(pr.player || '').replace(/_\d+_[A-Z]+$/, '').replace(/_/g, ' '));
-        if (nm.split(' ').length >= 2 && !map.has(nm)) map.set(nm, {match: `${g.away} @ ${g.home}`, gdate, lg});
+        if (nm.split(' ').length >= 2 && !map.has(nm)) map.set(nm, {match: `${g.away} @ ${g.home}`, gdate, lg, start: st && !isNaN(st) ? st.getTime() : null});
       });
     });
     PGAME = map; _pgAt = Date.now(); _cs.t = 0;
