@@ -163,6 +163,33 @@ button.lb{width:100%;border-left:0;border-right:0;border-top:0;background:none;t
 .fsit .to i.on{background:var(--ink)}
 .rz{display:inline-block;margin-left:8px;padding:1px 6px;border-radius:5px;background:var(--red-bg);color:var(--red);font:800 11px var(--body);vertical-align:5px;letter-spacing:.4px}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.pick{border:1.5px solid var(--line);border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:12px}
+.pkhd{display:flex;align-items:center;gap:10px}
+.pklbl{font:900 20px var(--disp);letter-spacing:.4px;text-transform:uppercase}
+.conf{font:800 14px var(--body);color:var(--muted);flex:1}.conf.hi{color:var(--green-t)}
+.iconbtn{width:36px;height:36px;border-radius:10px;border:1.5px solid var(--line);background:none;color:var(--ink);display:grid;place-items:center;cursor:pointer}
+.pkscore{background:var(--soft);border-radius:12px;padding:8px 12px}
+.pkcols{display:grid;grid-template-columns:1fr 54px 60px;gap:8px;font:800 11px var(--disp);letter-spacing:.7px;color:var(--muted);text-transform:uppercase;text-align:right;padding-bottom:2px}
+.pkrow{display:grid;grid-template-columns:30px 1fr auto 54px 60px;align-items:center;gap:8px;padding:6px 0}
+.pkrow img{width:30px;height:30px;object-fit:contain}
+.pkrow .nm{font:700 18px var(--body);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pkrow .pts{font:900 30px/1 var(--disp);text-align:right;font-variant-numeric:tabular-nums}
+.pkrow .mk{font:700 16px var(--disp);color:var(--muted);text-align:right;font-variant-numeric:tabular-nums}
+.pkrow .tro{font-size:16px}
+.pkrow .tro{width:20px;text-align:center}
+.pkfoot{font:600 13px var(--body);color:var(--muted);padding-top:4px;border-top:1px solid var(--line);margin-top:2px}
+.pktxt{font:500 16px/1.45 var(--body);max-height:4.4em;overflow:hidden;position:relative}
+.pktxt p{margin:0 0 8px}
+.pktxt:not(.open)::after{content:'';position:absolute;left:0;right:0;bottom:0;height:1.6em;background:linear-gradient(transparent,var(--bg))}
+.pktxt.open{max-height:none}
+.pknums{border:1.5px solid var(--line);border-radius:12px;padding:2px 12px}
+.pkn{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;padding:8px 0;border-top:1px solid var(--line);font:600 15px var(--body);font-variant-numeric:tabular-nums}
+.pkn>span:not(:first-child){text-align:right}.pkn.hd{border-top:0;font:800 11px var(--disp);letter-spacing:.7px;color:var(--muted);text-transform:uppercase}
+.pkn.flag{color:var(--green-t);font-weight:800}
+.pkstrip{display:flex;flex-wrap:wrap;gap:6px}.pkstrip span{font:600 13px var(--body);background:var(--soft);border-radius:999px;padding:5px 10px;color:var(--ink)}
+.pkres{border-left:3px solid var(--blue);padding:2px 0 2px 10px;display:flex;flex-direction:column;gap:3px;font:600 15px var(--body)}
+.pktags{display:flex;gap:6px;margin-top:4px}
+.pkmeta{font:500 13px var(--body);color:var(--muted)}
 .rinksvg{width:100%;display:block}
 .sogrow{display:flex;justify-content:space-between;align-items:baseline;font:600 15px var(--body);color:var(--muted);margin-top:2px}.sogrow b{font:900 24px var(--disp);color:var(--ink)}
 .ptbl{border:1.5px solid var(--line);border-radius:14px;padding:2px 12px}
@@ -448,7 +475,7 @@ const TEAM_LGS = LEAGUES.filter(l => l.type === 'team');
 const COLLEGE_LGS = LEAGUES.filter(l => l.college);
 const BOOKS = ['DraftKings','FanDuel','Bet365','BetMGM','Fanatics','Hard Rock','theScore','BetRivers','betPARX','Caesars','ESPN BET'];
 const BOOK_MAP = {draftkings:'DraftKings', fanduel:'FanDuel', betmgm:'BetMGM', caesars:'Caesars', espnbet:'ESPN BET', bet365:'Bet365', fanatics:'Fanatics', hardrock:'Hard Rock', hardrockbet:'Hard Rock', betrivers:'BetRivers', thescore:'theScore', betparx:'betPARX'};
-const BUILD = '2026-10-22 v42';
+const BUILD = '2026-10-22 v43';
 /* The Call Sheet lives on the same site (jibboo72.github.io), so its saved
    data and its published odds file are both readable from here. */
 const CS_KEY = 'nfl-call-sheet-v3';
@@ -2676,6 +2703,154 @@ function rinkTab(s, ev, p){
   return html;
 }
 
+/* ================= OUR PICK =================
+   A prediction card from your own power ratings: projected final score,
+   win probability (shown as confidence), model vs market on the side and
+   the total, a written breakdown, weather and injuries. Everything comes
+   from the Call Sheet data files, nothing from anyone else's model. */
+function normCdf(z){ const t = 1 / (1 + 0.2316419 * Math.abs(z)); const d = 0.3989423 * Math.exp(-z * z / 2); const p = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274)))); return z > 0 ? 1 - p : p; }
+function rankOf(teams, key, abbr, low){
+  const arr = Object.entries(teams).filter(([, t]) => t && isFinite(t[key])).sort((a, b) => low ? a[1][key] - b[1][key] : b[1][key] - a[1][key]);
+  const i = arr.findIndex(([k]) => k === abbr); return i >= 0 ? i + 1 : null;
+}
+const ordN = n => { const s = ['th', 'st', 'nd', 'rd'], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); };
+function pickData(d, ev){
+  const m = d.model; if (!m || !m.g) return null;
+  const g = m.g, nfl = ev.lg === 'nfl';
+  const M = +m.modelM;
+  const tot = nfl ? (g.ptot !== undefined && g.ptot !== null ? +g.ptot : null) : (m.total !== undefined && m.total !== null ? +m.total : null);
+  const hl = parseSpread(ev);
+  const mktM = hl !== null ? -hl : m.fileM;
+  const mktT = ev.odds.ou !== undefined && ev.odds.ou !== null && ev.odds.ou !== '' ? +ev.odds.ou : (nfl ? (g.total ?? null) : (m.fileTotal ?? null));
+  const wp = m.wp !== undefined && m.wp !== null ? +m.wp : normCdf(M / 13.5);
+  let hp = null, ap = null;
+  if (tot !== null){ hp = Math.round((tot + M) / 2); ap = Math.round((tot - M) / 2); if (hp === ap){ if (M > 0) hp++; else ap++; } }
+  let mh = null, ma = null;
+  if (mktT !== null && mktM !== null){ mh = (mktT + mktM) / 2; ma = (mktT - mktM) / 2; }
+  return {g, nfl, M, tot, mktM, mktT, wp, hp, ap, mh, ma, edge: mktM !== null ? M - mktM : null, tedge: mktT !== null && tot !== null ? tot - mktT : null};
+}
+function pickStory(d, ev, P){
+  const H = ev.home, A = ev.away, hn = H.loc || H.short, an = A.loc || A.short;
+  const fav = P.M >= 0 ? H : A, dog = P.M >= 0 ? A : H, fn = fav.loc || fav.short, dn = dog.loc || dog.short;
+  const out = [];
+  const rec = t => t.record ? ` (${t.record})` : '';
+  /* ratings and matchup */
+  if (P.nfl){
+    const T = (d.mfile && d.mfile.teams) || {};
+    const ha = normAbbr(H.abbr), aa = normAbbr(A.abbr), th = T[ha] || T[H.abbr], ta = T[aa] || T[A.abbr];
+    if (th && ta){
+      out.push(`${an}${rec(A)} comes in ${ordN(ta.rating_rank)} in your power ratings; ${hn}${rec(H)} is ${ordN(th.rating_rank)}.`);
+      const ms = [
+        [th.off_rank, ta.def_rank, `${hn}'s ${ordN(th.off_rank)}-ranked offense against ${an}'s ${ordN(ta.def_rank)} defense`],
+        [ta.off_rank, th.def_rank, `${an}'s ${ordN(ta.off_rank)}-ranked offense against ${hn}'s ${ordN(th.def_rank)} defense`]];
+      const kk = abbr => T[abbr] ? abbr : null;
+      const pr = (abbr, key, low) => kk(abbr) ? rankOf(T, key, kk(abbr), low) : null;
+      const hP = pr(ha, 'off_pass'), aPD = pr(aa, 'def_pass'), aP = pr(aa, 'off_pass'), hPD = pr(ha, 'def_pass');
+      const hR = pr(ha, 'off_rush'), aRD = pr(aa, 'def_rush'), aR = pr(aa, 'off_rush'), hRD = pr(ha, 'def_rush');
+      if (hP && aPD) ms.push([hP, aPD, `${hn}'s passing game (${ordN(hP)}) against ${an}'s pass defense (${ordN(aPD)})`]);
+      if (aP && hPD) ms.push([aP, hPD, `${an}'s passing game (${ordN(aP)}) against ${hn}'s pass defense (${ordN(hPD)})`]);
+      if (hR && aRD) ms.push([hR, aRD, `${hn}'s run game (${ordN(hR)}) against ${an}'s run defense (${ordN(aRD)})`]);
+      if (aR && hRD) ms.push([aR, hRD, `${an}'s run game (${ordN(aR)}) against ${hn}'s run defense (${ordN(hRD)})`]);
+      const best = ms.filter(x => x[0] && x[1]).sort((a, b) => (b[1] - b[0]) - (a[1] - a[0]))[0];
+      if (best && best[1] - best[0] >= 10 && best[0] <= 12) out.push(`The biggest mismatch is ${best[2]}.`);
+    }
+  } else {
+    const list = [].concat((d.mfile && d.mfile.teams) || [], (d.mfile && d.mfile._fcsFile && d.mfile._fcsFile.teams) || []);
+    const byName = nm => list.find(x => same(x.team, nm));
+    const th = byName(P.g.home), ta = byName(P.g.away);
+    if (th && ta){
+      const r = (t, nm) => `${nm}${t.w !== undefined ? ` (${t.w}-${t.l})` : ''} is ${ordN(t.rank)} in your ratings`;
+      out.push(`${r(ta, an)}; ${r(th, hn)}.`);
+      const a1 = (th.off_rank && ta.def_rank) ? [th.off_rank, ta.def_rank, `${hn}'s ${ordN(th.off_rank)}-ranked offense against ${an}'s ${ordN(ta.def_rank)} defense`] : null;
+      const a2 = (ta.off_rank && th.def_rank) ? [ta.off_rank, th.def_rank, `${an}'s ${ordN(ta.off_rank)}-ranked offense against ${hn}'s ${ordN(th.def_rank)} defense`] : null;
+      const best = [a1, a2].filter(Boolean).sort((a, b) => (b[1] - b[0]) - (a[1] - a[0]))[0];
+      if (best && best[1] - best[0] >= 25 && best[0] <= 40) out.push(`The biggest mismatch is ${best[2]}.`);
+      const tr = t => (t.trend || []).length >= 4 ? t.trend[t.trend.length - 1] - t.trend[t.trend.length - 4] : 0;
+      const up = [[th, hn], [ta, an]].map(([t, nm]) => [tr(t), nm]).sort((a, b) => Math.abs(b[0]) - Math.abs(a[0]))[0];
+      if (up && Math.abs(up[0]) >= 3) out.push(`${up[1]} is trending ${up[0] > 0 ? 'up' : 'down'}, ${Math.abs(up[0]).toFixed(1)} points in its rating over the last three weeks.`);
+    }
+  }
+  /* side */
+  const fm = Math.abs(P.M).toFixed(1);
+  if (P.mktM === null) out.push(`The model makes ${fn} a ${fm}-point favorite.`);
+  else {
+    const mf = P.mktM >= 0 ? H : A, mm = Math.abs(P.mktM);
+    const mkt = mm < 0.25 ? 'a pick\'em' : `${mf.loc || mf.short} by ${mm % 1 ? mm.toFixed(1) : mm}`;
+    const e = P.edge, side = e > 0 ? H : A, sn = side.loc || side.short;
+    if (Math.abs(e) < 1) out.push(`The model makes it ${fn} by ${fm}, right in line with the market's ${mkt}.`);
+    else out.push(`The model makes it ${fn} by ${fm} against the market's ${mkt}, a ${Math.abs(e).toFixed(1)}-point edge toward ${sn}${Math.abs(e) >= 3 ? ', big enough to flag' : ''}.`);
+  }
+  /* total */
+  if (P.tot !== null){
+    if (P.mktT !== null && Math.abs(P.tedge) >= 1) out.push(`It projects ${Math.round(P.tot)} total points against a ${P.mktT} number, leaning ${P.tedge > 0 ? 'over' : 'under'} by ${Math.abs(P.tedge).toFixed(1)}.`);
+    else out.push(`It projects ${Math.round(P.tot)} total points${P.mktT !== null ? `, close to the ${P.mktT} market` : ''}.`);
+  }
+  /* weather + injuries */
+  const wx = d.wx;
+  if (wx && wx.wind !== undefined && wx.wind !== null){
+    const parts = [];
+    if (wx.wind >= 15) parts.push(`wind around ${Math.round(wx.wind)} mph${wx.gust ? ` (gusts to ${Math.round(wx.gust)})` : ''}`);
+    if (wx.temp !== null && wx.temp !== undefined && wx.temp <= 35) parts.push(`${Math.round(wx.temp)}°`);
+    if (wx.pop >= 50) parts.push(`a ${wx.pop}% chance of ${wx.snow > 0 ? 'snow' : 'rain'}`);
+    if (parts.length) out.push(`Weather to watch: ${parts.join(', ')}.`);
+  } else if (P.nfl && /dome|closed/i.test(String(P.g.roof || ''))) out.push('Indoors, so weather is not a factor.');
+  if (P.nfl && (P.g.inj_home >= 1 || P.g.inj_away >= 1)){
+    const ih = +P.g.inj_home || 0, ia = +P.g.inj_away || 0;
+    const worse = ih >= ia ? hn : an;
+    out.push(`Injuries are already in the number: they cost ${worse} about ${Math.max(ih, ia).toFixed(1)} points${Math.min(ih, ia) >= 0.3 ? ` (${ih >= ia ? an : hn} ${Math.min(ih, ia).toFixed(1)})` : ''}.`);
+  }
+  return out;
+}
+function pickCard(d, ev, p){
+  const P = pickData(d, ev);
+  if (!P) return d.modelErr ? `<div class="empty">Your power ratings aren't reachable right now.<br><small>${esc(d.modelErr)}</small></div>` : '<div class="empty">No power rating for this game yet.</div>';
+  const H = ev.home, A = ev.away;
+  const conf = Math.round(Math.max(P.wp, 1 - P.wp) * 100), favH = P.wp >= 0.5;
+  const story = pickStory(d, ev, P);
+  const open = !!p.more;
+  const row = (t, pts, win, mk) => `<div class="pkrow">${t.logo ? logo(t.logo) : '<span class="ph"></span>'}<span class="nm">${esc(t.short || t.name)}</span><span class="tro"${win ? ' aria-label="Projected winner"' : ''}>${win ? '🏆' : ''}</span><span class="pts">${pts === null ? '—' : pts}</span><span class="mk">${mk !== null ? mk.toFixed(1) : ''}</span></div>`;
+  const mk = P.mh !== null;
+  let html = `<div class="pick">
+    <div class="pkhd"><span class="pklbl">Prediction</span><span class="conf ${conf >= 60 ? 'hi' : ''}">${conf}% confidence</span>
+      ${navigator.share ? `<button class="iconbtn" aria-label="Share this pick" data-h="${h(() => sharePick(ev, P, story))}"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg></button>` : ''}</div>
+    <div class="pkscore"><div class="pkcols"><span></span><span>Ours</span><span>${mk ? 'Market' : ''}</span></div>${row(A, P.ap, !favH, mk ? P.ma : null)}${row(H, P.hp, favH, mk ? P.mh : null)}
+      <div class="pkfoot">${P.tot !== null ? `Projected total ${Math.round(P.tot * 10) / 10}` : ''}${mk ? ' · market score from the line and total' : ''}</div></div>
+    <div class="pktxt ${open ? 'open' : ''}">${story.map(s2 => `<p>${esc(s2)}</p>`).join('')}</div>
+    ${story.length > 2 ? `<button class="linkbtn" data-h="${h(() => setP({more: !open}))}">${open ? 'Show less' : 'Read more'} ${open ? '▴' : '▾'}</button>` : ''}`;
+  /* the numbers */
+  const rows = [];
+  rows.push(['Side', sprText(ev, P.M), P.mktM !== null ? sprText(ev, P.mktM) : '—', P.edge !== null ? (Math.abs(P.edge) < 0.05 ? '—' : `${Math.abs(P.edge).toFixed(1)} ${(P.edge > 0 ? H : A).abbr}`) : '—', P.edge !== null && Math.abs(P.edge) >= 3]);
+  if (P.tot !== null) rows.push(['Total', (Math.round(P.tot * 10) / 10).toFixed(1), P.mktT !== null ? String(P.mktT) : '—', P.tedge !== null && Math.abs(P.tedge) >= 0.05 ? `${P.tedge > 0 ? 'Over' : 'Under'} ${Math.abs(P.tedge).toFixed(1)}` : '—', P.tedge !== null && Math.abs(P.tedge) >= 3]);
+  rows.push(['Win prob', `${(P.wp >= 0.5 ? H : A).abbr} ${Math.round(Math.max(P.wp, 1 - P.wp) * 100)}%`, '', '', false]);
+  html += `<div class="pknums"><div class="pkn hd"><span></span><span>Ours</span><span>Market</span><span>Edge</span></div>${rows.map(r => `<div class="pkn${r[4] ? ' flag' : ''}"><span>${esc(r[0])}</span><span>${esc(r[1])}</span><span>${esc(r[2])}</span><span>${esc(r[3])}</span></div>`).join('')}</div>`;
+  /* weather / injuries strip */
+  const strip = [];
+  const wx = d.wx;
+  if (wx && wx.temp !== undefined && wx.temp !== null) strip.push(`${Math.round(wx.temp)}° · wind ${Math.round(wx.wind || 0)} mph${(wx.flags || []).includes('wind') ? ' 💨' : ''}`);
+  else if (P.nfl && P.g.roof) strip.push(/dome|closed/i.test(P.g.roof) ? 'Indoors' : /open/i.test(P.g.roof) ? 'Roof open' : 'Outdoors');
+  if (P.nfl && (P.g.inj_home !== undefined || P.g.inj_away !== undefined)) strip.push(`Injury cost: ${A.abbr} ${(+P.g.inj_away || 0).toFixed(1)} · ${H.abbr} ${(+P.g.inj_home || 0).toFixed(1)} pts`);
+  if (strip.length) html += `<div class="pkstrip">${strip.map(x => `<span>${esc(x)}</span>`).join('')}</div>`;
+  /* how it went */
+  if (ev.state === 'post'){
+    const hs = +H.score, as = +A.score;
+    if (isFinite(hs) && isFinite(as)){
+      const realM = hs - as, ats = P.mktM !== null && Math.abs(P.edge) >= 0.05 ? (realM - P.mktM === 0 ? 'push' : ((P.edge > 0) === (realM - P.mktM > 0) ? 'won' : 'lost')) : null;
+      const ou = P.mktT !== null && P.tedge !== null && Math.abs(P.tedge) >= 0.05 ? (hs + as === P.mktT ? 'push' : ((P.tedge > 0) === (hs + as > P.mktT) ? 'won' : 'lost')) : null;
+      const winOk = (realM > 0) === (P.M > 0);
+      html += `<div class="pkres"><b>Final ${esc(A.abbr)} ${as}–${hs} ${esc(H.abbr)}</b><span>We said ${esc(A.abbr)} ${P.ap}–${P.hp} ${esc(H.abbr)}</span>
+        <div class="pktags"><span class="tag ${winOk ? 'won' : 'lost'}">Winner ${winOk ? '✓' : '✗'}</span>${ats ? `<span class="tag ${ats}">Side ${ats === 'won' ? '✓' : ats === 'lost' ? '✗' : 'push'}</span>` : ''}${ou ? `<span class="tag ${ou}">${P.tedge > 0 ? 'Over' : 'Under'} ${ou === 'won' ? '✓' : ou === 'lost' ? '✗' : 'push'}</span>` : ''}</div></div>`;
+    }
+  }
+  const thru = d.mfile && d.mfile.through_week ? `Ratings through week ${d.mfile.through_week}` : 'From your power ratings';
+  html += `<div class="pkmeta">${esc(thru)}${d.mfileAt ? ' · checked ' + esc(agoText(d.mfileAt)) : ''}. A flag to look closer, not a bet.</div></div>`;
+  return html;
+}
+function agoText(ts){ const m = Math.round((Date.now() - ts) / 60000); return m < 1 ? 'just now' : m < 60 ? `${m} min ago` : `${Math.round(m / 60)} hr ago`; }
+function sharePick(ev, P, story){
+  const txt = `SportsMF pick: ${ev.away.abbr} ${P.ap} – ${ev.home.abbr} ${P.hp} (${Math.round(Math.max(P.wp, 1 - P.wp) * 100)}% confidence)\n${story.slice(0, 3).join(' ')}`;
+  try { navigator.share({title: `${ev.away.abbr} @ ${ev.home.abbr}`, text: txt}).catch(() => {}); } catch (e){}
+}
+
 /* ================= PLAYER PAGES =================
    Tap a player in any box score. His recent games are read from the same
    scoreboard and box-score feeds the rest of the app uses (the ones that
@@ -2860,9 +3035,12 @@ VIEWS.game = {
     const out = {s, ev, comp};
     const t = gameTab(p, ev);
     const sub = betSub(p, p.lg);
-    if ((p.lg === 'nfl' || p.lg === 'cfb') && t === 'bet' && sub !== 'props'){
-      try { const mf = await modelFile(p.lg), ml = await modelLookup(p.lg); out.model = modelFor(ml, ev); out.ats = atsRecord(out.model && out.model.g && out.model.g._fcs ? (mf._fcsFile || mf) : mf, p.lg); }
+    if ((p.lg === 'nfl' || p.lg === 'cfb') && (t === 'pick' || (t === 'bet' && sub !== 'props'))){
+      try { const mf = await modelFile(p.lg), ml = await modelLookup(p.lg); out.model = modelFor(ml, ev); out.ats = atsRecord(out.model && out.model.g && out.model.g._fcs ? (mf._fcsFile || mf) : mf, p.lg); out.mfile = ml; out.mfileAt = (mem.get((CS_MODEL[p.lg] || [])[0]) || mem.get((CS_MODEL[p.lg] || [])[1]) || {}).t || null; }
       catch (e){ out.modelErr = e.message; }
+      if (t === 'pick' || sub === 'model'){
+        try { const w = await csFile(CS_WX); const key = p.lg === 'nfl' ? out.model && out.model.g && out.model.g.id : ev.id; out.wx = key && w && w[p.lg] ? w[p.lg][key] || null : null; } catch (e){}
+      }
     }
     if (p.lg === 'mlb' && t === 'pitches'){
       try { out.mlb = await mlbData(ev); } catch (e){ out.mlbErr = e.message; }
@@ -2902,6 +3080,7 @@ VIEWS.game = {
     const tapBet = b => () => b.cs ? csSheet(b) : betSheet(b);
     let body = '';
     if (t === 'bet') body = betTab(d, ev, p, avail, bets, tapBet);
+    if (t === 'pick') body = pickCard(d, ev, p);
     if (t === 'box') body = boxTab(s, ev, comp, p);
     if (t === 'scoring') body = scoringTab(s, ev);
     if (t === 'plays') body = playsTab(s, ev);
@@ -2931,7 +3110,7 @@ VIEWS.game = {
   }
 };
 function gameTabs(ev){
-  if (ev.state === 'pre') return [['bet', 'BET'], ['news', 'NEWS']];
+  if (ev.state === 'pre') return (ev.lg === 'nfl' || ev.lg === 'cfb') ? [['pick', 'OUR PICK'], ['bet', 'BET'], ['news', 'NEWS']] : [['bet', 'BET'], ['news', 'NEWS']];
   if (ev.lg === 'mlb') return [['pitches', 'PITCHES'], ['scoring', 'SCORING'], ['box', 'BOX'], ['bet', 'BET'], ['news', 'NEWS']];
   if (/football/.test(ev.path || '')) return [['field', 'FIELD'], ['scoring', 'SCORING'], ['box', 'BOX'], ['bet', 'BET'], ['news', 'NEWS']];
   if (/basketball/.test(ev.path || '')) return [['court', 'COURT'], ['box', 'BOX'], ['bet', 'BET'], ['news', 'NEWS']];
@@ -2946,17 +3125,18 @@ function gameTab(p, ev){
   if (ks.includes('court') && !ks.includes(want)) return ev.state === 'pre' ? 'bet' : 'court';
   if ((want === 'plays' || want === 'scoring') && ks.includes('rink')) return 'rink';
   if (ks.includes('rink') && !ks.includes(want)) return ev.state === 'pre' ? 'bet' : 'rink';
-  return ks.includes(want) ? want : (ev.state === 'pre' ? 'bet' : ev.lg === 'mlb' ? 'pitches' : ks.includes('field') && ev.state === 'in' ? 'field' : 'scoring');
+  if (want === 'pick' && !ks.includes('pick') && (ev.lg === 'nfl' || ev.lg === 'cfb')) return 'bet';
+  return ks.includes(want) ? want : (ev.state === 'pre' ? (ks.includes('pick') ? 'pick' : 'bet') : ev.lg === 'mlb' ? 'pitches' : ks.includes('field') && ev.state === 'in' ? 'field' : 'scoring');
 }
 /* Lines, props and your power ratings in one place, plus your bets. */
 function betTab(d, ev, p, avail, bets, tapBet){
   const subs = BET_SUBS(ev.lg);
   const sub = betSub(p, ev.lg);
-  const lbl = {lines: 'Lines', props: 'Props', model: 'Power rating'};
+  const lbl = {lines: 'Lines', props: 'Props', model: 'Our pick'};
   let html = subs.length > 1 ? `<div class="chips sm">${subs.map(k => `<button class="chip ${sub === k ? 'on' : ''}" data-h="${h(() => setP({tab: 'bet', sub: k, page: 0, mkt: undefined}))}">${lbl[k]}</button>`).join('')}</div>` : '';
   if (sub === 'lines') html += oddsTab(d.s, ev, d);
   if (sub === 'props') html += ev.lg === 'nhl' ? nhlPropsTab(d, ev, p, avail) : propsTab(d, ev, p, avail);
-  if (sub === 'model') html += modelBlock(d, ev) || '<div class="empty">No power rating for this game.</div>';
+  if (sub === 'model') html += pickCard(d, ev, p) + (modelBlock(d, ev) ? `<div style="margin-top:14px">${modelBlock(d, ev)}</div>` : '');
   if (bets.length){
     html += `<div><div class="lbl" style="margin-bottom:6px">Your bets</div><div class="card" style="cursor:default">${bets.map(b => betBand(b, ev, 'button', tapBet(b), d.s)).join('')}</div></div>`;
   }
