@@ -163,6 +163,18 @@ button.lb{width:100%;border-left:0;border-right:0;border-top:0;background:none;t
 .fsit .to i.on{background:var(--ink)}
 .rz{display:inline-block;margin-left:8px;padding:1px 6px;border-radius:5px;background:var(--red-bg);color:var(--red);font:800 11px var(--body);vertical-align:5px;letter-spacing:.4px}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.phero{display:flex;align-items:center;gap:14px}
+.phead{width:72px;height:72px;border-radius:50%;object-fit:cover;background:var(--soft);flex:none}
+.phero .pn{font:900 30px/1.05 var(--disp);letter-spacing:.3px}
+.pchart{border:1.5px solid var(--line);border-radius:14px;padding:12px}
+.pchart .big2{font:900 36px/1 var(--disp)}.pchart .big2 small{font-size:20px;color:var(--muted)}
+.lineadj{display:flex;align-items:center;gap:8px}.lineadj b{font:900 22px var(--disp);min-width:44px;text-align:center}
+.lineadj .chip{min-width:40px;justify-content:center;font-size:20px}
+.pbarsvg{width:100%;display:block;margin-top:8px}
+.pstats{display:flex;justify-content:space-between;margin-top:6px;font:600 14px var(--body);color:var(--muted)}.pstats b{color:var(--ink);font-variant-numeric:tabular-nums}
+.wl{font:900 12px var(--disp);margin-left:4px;color:var(--muted)}.wl.w{color:var(--green-t)}.wl.l{color:var(--red)}
+.pbx .pr[role=button]{cursor:pointer}.pbx .pr[role=button]:active{background:var(--soft)}
+.ld1[role=button]{cursor:pointer}
 .bsit{border:1.5px solid var(--line);border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;gap:4px}
 .bsit .top{display:flex;justify-content:space-between;align-items:center;gap:8px}
 .bsit .clk{font:900 22px/1 var(--disp);letter-spacing:.4px;color:var(--ink)}
@@ -428,7 +440,7 @@ const TEAM_LGS = LEAGUES.filter(l => l.type === 'team');
 const COLLEGE_LGS = LEAGUES.filter(l => l.college);
 const BOOKS = ['DraftKings','FanDuel','Bet365','BetMGM','Fanatics','Hard Rock','theScore','BetRivers','betPARX','Caesars','ESPN BET'];
 const BOOK_MAP = {draftkings:'DraftKings', fanduel:'FanDuel', betmgm:'BetMGM', caesars:'Caesars', espnbet:'ESPN BET', bet365:'Bet365', fanatics:'Fanatics', hardrock:'Hard Rock', hardrockbet:'Hard Rock', betrivers:'BetRivers', thescore:'theScore', betparx:'betPARX'};
-const BUILD = '2026-10-22 v40';
+const BUILD = '2026-10-22 v41';
 /* The Call Sheet lives on the same site (jibboo72.github.io), so its saved
    data and its published odds file are both readable from here. */
 const CS_KEY = 'nfl-call-sheet-v3';
@@ -1179,7 +1191,7 @@ const R = {tab:'tonight', stack:[{name:'tonight', p:{}}]};
 const cur = () => R.stack[R.stack.length - 1];
 function go(name, p){ const c = cur(); if (c) c.scroll = $('#view').scrollTop; R.stack.push({name, p: p || {}}); render(); }
 function back(){ if (R.stack.length > 1) R.stack.pop(); render(); }
-const NAV_NAMES = {team: 'Team', tonight: 'Tonight', sports: 'Sports', bets: 'My Bets', news: 'News', game: 'Game', myteams: 'My Teams', settings: 'Settings', fantasy: 'Fantasy', addbet: 'Add Bet', mflsetup: 'MFL'};
+const NAV_NAMES = {player: 'Player', team: 'Team', tonight: 'Tonight', sports: 'Sports', bets: 'My Bets', news: 'News', game: 'Game', myteams: 'My Teams', settings: 'Settings', fantasy: 'Fantasy', addbet: 'Add Bet', mflsetup: 'MFL'};
 function navName(st){ if (!st) return 'Back'; if (st.name === 'league' && LG[st.p.lg]) return LG[st.p.lg].short; return NAV_NAMES[st.name] || 'Back'; }
 /* Top bar: logo on the four main screens; Back + title everywhere else.
    The screen's own big title (or the game scoreboard) slides up into the
@@ -2395,7 +2407,7 @@ function hoopsLeaders(s, ev){
     });
     ppl.sort((x, y) => y.pts - x.pts || y.reb - x.reb);
     const tm = ev[sd];
-    return `<div class="ldrs"><div class="lt">${tm.logo ? logo(tm.logo) : ''}<b>${esc(tm.abbr || tm.short)}</b></div>${ppl.slice(0, 3).map(x => `<div class="ld1${hit(x.a.athlete) ? ' bet' : ''}"><span class="nm">${hit(x.a.athlete) ? '★ ' : ''}${esc(boxName(x.a.athlete || {}))}</span><span class="ln"><b>${x.pts}</b> pts · ${x.reb} reb · ${x.ast} ast${x.tpm ? ' · ' + x.tpm + ' 3pm' : ''}</span></div>`).join('')}</div>`;
+    return `<div class="ldrs"><div class="lt">${tm.logo ? logo(tm.logo) : ''}<b>${esc(tm.abbr || tm.short)}</b></div>${ppl.slice(0, 3).map(x => `<div class="ld1${hit(x.a.athlete) ? ' bet' : ''}" role="button" data-h="${h(() => go('player', {lg: ev.lg, aid: (x.a.athlete || {}).id, name: (x.a.athlete || {}).displayName || '', team: String(ev[sd].id), teamAbbr: ev[sd].abbr}))}"><span class="nm">${hit(x.a.athlete) ? '★ ' : ''}${esc(boxName(x.a.athlete || {}))}</span><span class="ln"><b>${x.pts}</b> pts · ${x.reb} reb · ${x.ast} ast${x.tpm ? ' · ' + x.tpm + ' 3pm' : ''}</span></div>`).join('')}</div>`;
   };
   const a = side('away'), b = side('home');
   return a || b ? `<div><div class="lbl" style="margin-bottom:6px">Leaders</div><div class="ldrw">${a}${b}</div></div>` : '';
@@ -2482,6 +2494,166 @@ function courtTab(s, ev, p){
     ${list.length > n ? `<button class="linkbtn" style="margin-top:8px" data-h="${h(() => setP({pn: n + 50}))}">Show ${Math.min(50, list.length - n)} more</button>` : ''}</div>`;
   return html;
 }
+
+/* ================= PLAYER PAGES =================
+   Tap a player in any box score. His recent games are read from the same
+   scoreboard and box-score feeds the rest of the app uses (the ones that
+   work on your phone), so every number matches what the box score shows. */
+const PLAYER_SPAN = {nfl: 70, cfb: 35, nba: 30, cbb: 16, nhl: 30, chk: 40, mlb: 16};
+const PLAYER_N = {nfl: 8, cfb: 6, nba: 10, cbb: 8, nhl: 10, chk: 8, mlb: 10};
+/* [label, how to read it from a box line]: a stat is [category or null, LABEL] or a sum of those */
+function playerStatDefs(lg, path){
+  if (/football/.test(path)) return [
+    ['Receptions', [['receiving', 'REC']]], ['Rec yards', [['receiving', 'YDS']]], ['Targets', [['receiving', 'TGTS']]], ['Long rec', [['receiving', 'LONG']]],
+    ['Rush yards', [['rushing', 'YDS']]], ['Carries', [['rushing', 'CAR']]], ['Rush+rec yds', [['rushing', 'YDS'], ['receiving', 'YDS']]],
+    ['TDs', [['rushing', 'TD'], ['receiving', 'TD']]], ['Pass yards', [['passing', 'YDS']]], ['Pass TD', [['passing', 'TD']]], ['INT', [['passing', 'INT']]],
+    ['Tackles', [['defensive', 'TOT']]], ['Sacks', [['defensive', 'SACKS']]]];
+  if (/basketball/.test(path)) return [
+    ['Points', [[null, 'PTS']]], ['Rebounds', [[null, 'REB']]], ['Assists', [[null, 'AST']]], ['3PM', [[null, '3PT']]],
+    ['PRA', [[null, 'PTS'], [null, 'REB'], [null, 'AST']]], ['P+R', [[null, 'PTS'], [null, 'REB']]], ['P+A', [[null, 'PTS'], [null, 'AST']]],
+    ['Steals', [[null, 'STL']]], ['Blocks', [[null, 'BLK']]], ['Minutes', [[null, 'MIN']]]];
+  if (/hockey/.test(path)) return [
+    ['Shots on goal', [[null, ['SOG', 'S']]]], ['Goals', [[null, 'G']]], ['Assists', [[null, 'A']]], ['Points', [[null, 'G'], [null, 'A']]],
+    ['Blocked shots', [[null, 'BS']]], ['Hits', [[null, 'HT']]], ['Saves', [[null, 'SV']]], ['Shots against', [[null, 'SA']]]];
+  if (/baseball/.test(path)) return [
+    ['Hits', [['batting', 'H']]], ['Home runs', [['batting', 'HR']]], ['RBI', [['batting', 'RBI']]], ['Runs', [['batting', 'R']]], ['Walks', [['batting', 'BB']]],
+    ['Strikeouts (P)', [['pitching', 'K']]], ['Hits allowed', [['pitching', 'H']]], ['Earned runs', [['pitching', 'ER']]]];
+  return [];
+}
+/* the player's line in one game's box score: {CAT.LABEL: value} plus his athlete record */
+function playerLine(s, aid, name){
+  let ath = null; const vals = {}; let found = false;
+  ((s && s.boxscore && s.boxscore.players) || []).forEach(tg => (tg.statistics || []).forEach(c => {
+    const up = (c.labels || c.names || []).map(l => String(l).toUpperCase());
+    (c.athletes || []).forEach(a => {
+      const at = a.athlete || {};
+      if (!(aid ? String(at.id) === String(aid) : same(at.displayName, name))) return;
+      ath = ath || at; found = true;
+      if (a.didNotPlay || !(a.stats || []).length) return;
+      up.forEach((l, i) => { vals[(c.name || '') + '.' + l] = a.stats[i]; vals['.' + l] = vals['.' + l] ?? a.stats[i]; });
+    });
+  }));
+  return found ? {ath, vals} : null;
+}
+function readDef(vals, def){
+  let tot = 0, any = false;
+  for (const [cat, lab] of def){
+    const labs = Array.isArray(lab) ? lab : [lab];
+    let v;
+    for (const l of labs){ v = cat ? vals[cat + '.' + l] : vals['.' + l]; if (v !== undefined) break; }
+    if (v === undefined || v === null || v === '' || v === '--') continue;
+    const n = parseFloat(String(v).split('-')[0].split(':')[0]);
+    if (!isNaN(n)){ tot += n; any = true; }
+  }
+  return any ? tot : null;
+}
+/* a bet on this player: which stat and number, so the chart opens on it */
+function betStatFor(lg, path, pick){
+  const t = ' ' + String(pick || '').toLowerCase() + ' ';
+  const map = /football/.test(path) ? [[/rec(eiving)?\s*y(ar)?ds|receiving yards/, 'Rec yards'], [/rush(ing)?\s*\+\s*rec|scrimmage/, 'Rush+rec yds'], [/rush(ing)?\s*y(ar)?ds/, 'Rush yards'], [/pass(ing)?\s*y(ar)?ds/, 'Pass yards'], [/pass(ing)?\s*td/, 'Pass TD'], [/targets?/, 'Targets'], [/long(est)?\s*rec/, 'Long rec'], [/receptions?|\brec\b|catches/, 'Receptions'], [/carries|rush(ing)?\s*att/, 'Carries'], [/anytime|\btd\b|touchdown/, 'TDs']]
+    : /basketball/.test(path) ? [[/p\s*\+\s*r\s*\+\s*a|\bpra\b/, 'PRA'], [/p\s*\+\s*r\b/, 'P+R'], [/p\s*\+\s*a\b/, 'P+A'], [/threes?|3pt|3pm|\b3s\b/, '3PM'], [/rebounds?|\breb/, 'Rebounds'], [/assists?|\bast\b/, 'Assists'], [/steals?/, 'Steals'], [/blocks?/, 'Blocks'], [/points?|\bpts\b/, 'Points']]
+    : /hockey/.test(path) ? [[/blocked/, 'Blocked shots'], [/\bsog\b|shots/, 'Shots on goal'], [/saves?/, 'Saves'], [/points?|\bpts\b/, 'Points'], [/assists?/, 'Assists'], [/hits?\b/, 'Hits'], [/goals?|anytime|scorer/, 'Goals']]
+    : [[/strikeouts?|\bks?\b/, 'Strikeouts (P)'], [/home runs?|\bhr\b/, 'Home runs'], [/\brbi/, 'RBI'], [/runs?\b/, 'Runs'], [/hits?\b/, 'Hits']];
+  const k = map.find(x => x[0].test(t));
+  let line = null, m;
+  if ((m = t.match(/(?:^|[^a-z])(?:o|over|u|under)\s*(\d+(?:\.\d+)?)/))) line = +m[1];
+  else if ((m = t.match(/(\d+(?:\.\d+)?)\s*\+/))) line = +m[1] - 0.5;
+  else if (k && /anytime|scorer|\btd\b/.test(t)) line = 0.5;
+  return k ? {stat: k[1], line} : null;
+}
+function playerBets(p){
+  const last = String(p.name || '').toLowerCase().replace(/\b(jr|sr|ii|iii|iv)\b\.?/g, '').trim().split(' ').pop();
+  const full = String(p.name || '').toLowerCase().replace(/\b(jr|sr|ii|iii|iv)\b\.?/g, '').trim();
+  return S.bets.concat(csCached()).filter(b => {
+    const t = ' ' + String(b.pick || '').toLowerCase() + ' ';
+    return (full && t.includes(full)) || (last && last.length >= 4 && new RegExp('[^a-z]' + reEsc(last) + '[^a-z]').test(t));
+  });
+}
+VIEWS.player = {
+  async load(p){
+    const lg = LG[p.lg]; if (!lg) throw new Error('Unknown league');
+    const end = today(), start = addDays(end, -(PLAYER_SPAN[p.lg] || 30));
+    const q = p.lg === 'cfb' ? 'groups=80&limit=1000' : p.lg === 'cbb' ? 'groups=50&limit=1000' : 'limit=1000';
+    const evs = (await board(lg, `${start}-${end}`, q, 10 * 60000)).map(e => norm(e, p.lg))
+      .filter(e => e.state === 'post' && (String(e.home.id) === String(p.team) || String(e.away.id) === String(p.team)))
+      .sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, PLAYER_N[p.lg] || 8);
+    const games = [];
+    await Promise.allSettled(evs.map(async e => {
+      const s = await getJSON(`${BASE}${e.path}/summary?event=${e.id}`, 30 * 60000);
+      const ln = playerLine(s, p.aid, p.name);
+      const home = String(e.home.id) === String(p.team);
+      const me = home ? e.home : e.away, op = home ? e.away : e.home;
+      games.push({e, s, ln, home, opp: op, res: me.winner ? 'W' : op.winner ? 'L' : 'T', score: `${me.score}-${op.score}`});
+    }));
+    games.sort((a, b) => new Date(b.e.date) - new Date(a.e.date));
+    const ath = (games.find(g => g.ln && g.ln.ath) || {}).ln?.ath || {};
+    return {games, ath};
+  },
+  navTitle(p){ return esc(p.name || 'Player'); },
+  build(p, d){
+    const path = (LG[p.lg] && LG[p.lg].path) || '';
+    const defs = playerStatDefs(p.lg, path);
+    const played = d.games.filter(g => g.ln && Object.keys(g.ln.vals).length);
+    const at = d.ath || {};
+    const head = at.headshot && at.headshot.href ? `<img class="phead" src="${esc(at.headshot.href)}" alt="" loading="lazy">` : `<span class="phead ph"></span>`;
+    const pos = [at.position && at.position.abbreviation, at.jersey ? '#' + at.jersey : '', p.teamAbbr].filter(Boolean).join(' · ');
+    let html = `<div class="phero">${head}<div><div class="pn">${esc(p.name)}</div><div class="sub">${esc(pos)}</div></div></div>`;
+    if (!played.length) return html + `<div class="empty">No recent games found for ${esc(p.name)}.</div>`;
+    /* stats that have data */
+    const avail = defs.filter(([lbl, def]) => played.some(g => readDef(g.ln.vals, def) !== null));
+    const bets = playerBets(p);
+    const fromBet = bets.map(b => betStatFor(p.lg, path, b.pick)).find(x => x && avail.some(a => a[0] === x.stat));
+    const stat = avail.some(a => a[0] === p.stat) ? p.stat : (fromBet ? fromBet.stat : (avail[0] && avail[0][0]));
+    const def = (avail.find(a => a[0] === stat) || [])[1];
+    const series = played.slice().reverse().map(g => ({g, v: readDef(g.ln.vals, def) || 0}));
+    const vals = series.map(x => x.v), sorted = vals.slice().sort((a, b) => a - b);
+    const med = sorted.length ? sorted[Math.floor((sorted.length - 1) / 2)] : 0;
+    const big = med >= 20;
+    const dflt = fromBet && fromBet.stat === stat && fromBet.line !== null ? fromBet.line : Math.max(0.5, Math.floor(med) + 0.5 - (big ? 0 : 0));
+    const line = p.line !== undefined && p.statFor === stat ? p.line : dflt;
+    const step = big ? 5 : 1;
+    const over = vals.filter(v => v > line).length;
+    const avg = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
+    const l3 = vals.slice(-3), avg3 = l3.length ? l3.reduce((a, b) => a + b, 0) / l3.length : 0;
+    /* bets */
+    if (bets.length) html += `<div><div class="lbl" style="margin-bottom:6px">Your bets on ${esc(p.name.split(' ').slice(-1)[0])}</div><div class="card" style="cursor:default">${bets.map(b => `<div class="bband ${b.status === 'won' ? 'up' : b.status === 'lost' ? 'down' : ''}"><b>${esc(b.pick)}${b.odds !== null && b.odds !== undefined ? ' ' + esc(fmtOdds(b.odds)) : ''}</b><span class="st">${esc(b.status === 'open' ? 'Open' : b.status === 'won' ? 'Won' : b.status === 'lost' ? 'Lost' : 'Push')}</span></div>`).join('')}</div></div>`;
+    /* stat picker + chart */
+    const chip = a => `<button class="chip ${a[0] === stat ? 'on' : ''}" data-h="${h(() => setP({stat: a[0], line: undefined, statFor: undefined}))}">${esc(a[0])}</button>`;
+    html += `<div class="chips sm scrollx">${avail.map(chip).join('')}</div>`;
+    const W = 336, H = 150, P = 8, n = series.length, bw = Math.min(30, (W - 2 * P) / n - 6);
+    const mx = Math.max(line * 1.25, ...vals, 1);
+    const Y = v => H - 22 - (v / mx) * (H - 44);
+    let g = '';
+    series.forEach((x, i) => {
+      const cx = P + (i + .5) * ((W - 2 * P) / n), y = Y(x.v), hit = x.v > line;
+      g += `<rect x="${(cx - bw / 2).toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(2, H - 22 - y).toFixed(1)}" rx="4" fill="${hit ? 'var(--green-t)' : 'var(--silver)'}"/>`;
+      g += `<text x="${cx.toFixed(1)}" y="${(y - 5).toFixed(1)}" text-anchor="middle" font-size="12" font-weight="800" fill="var(--ink)" font-family="Saira Condensed,system-ui">${esc(String(Math.round(x.v * 10) / 10))}</text>`;
+      g += `<text x="${cx.toFixed(1)}" y="${H - 6}" text-anchor="middle" font-size="10" font-weight="700" fill="var(--muted)" font-family="Saira Condensed,system-ui">${x.g.home ? '' : '@'}${esc(x.g.opp.abbr || '')}</text>`;
+    });
+    g += `<line x1="${P}" y1="${Y(line).toFixed(1)}" x2="${W - P}" y2="${Y(line).toFixed(1)}" stroke="var(--blue)" stroke-width="2" stroke-dasharray="5 4"/>`;
+    const adj = dv => () => setP({line: Math.max(0.5, Math.round((line + dv) * 2) / 2), statFor: stat});
+    html += `<div class="pchart"><div class="row" style="align-items:center"><div><div class="big2">${over}<small>/${n}</small></div><div class="sub">over ${esc(String(line))} ${esc(stat.toLowerCase())}</div></div>
+      <div class="lineadj"><button class="chip" aria-label="Lower the line" data-h="${h(adj(-step))}">−</button><b>${esc(String(line))}</b><button class="chip" aria-label="Raise the line" data-h="${h(adj(step))}">+</button></div></div>
+      <svg viewBox="0 0 ${W} ${H}" class="pbarsvg" role="img" aria-label="${esc(stat)} by game">${g}</svg>
+      <div class="pstats"><span><b>${(Math.round(avg * 10) / 10)}</b> avg</span><span><b>${med}</b> median</span><span><b>${(Math.round(avg3 * 10) / 10)}</b> last 3</span><span><b>${n ? Math.round(over / n * 100) : 0}%</b> hit</span></div></div>`;
+    /* game log */
+    const cols = avail.slice(0, 6);
+    const SHORT = {'Receptions': 'REC', 'Rec yards': 'REC YD', 'Targets': 'TGT', 'Long rec': 'LNG', 'Rush yards': 'RU YD', 'Carries': 'CAR', 'Rush+rec yds': 'R+R', 'TDs': 'TD', 'Pass yards': 'PA YD', 'Pass TD': 'PA TD', 'Tackles': 'TKL', 'Sacks': 'SK',
+      'Points': 'PTS', 'Rebounds': 'REB', 'Assists': /hockey/.test(path) ? 'A' : 'AST', 'Steals': 'STL', 'Blocks': 'BLK', 'Minutes': 'MIN', 'Shots on goal': 'SOG', 'Goals': 'G', 'Blocked shots': 'BS', 'Hits': 'H', 'Saves': 'SV', 'Shots against': 'SA',
+      'Home runs': 'HR', 'Runs': 'R', 'Walks': 'BB', 'Strikeouts (P)': 'K', 'Hits allowed': 'HA', 'Earned runs': 'ER'};
+    const sh = l => SHORT[l] || l.toUpperCase();
+    const tmpl = `grid-template-columns:126px ${cols.map(() => '48px').join(' ')}`;
+    const rows = d.games.map(x => {
+      const dt = new Date(x.e.date).toLocaleDateString(undefined, {month: 'numeric', day: 'numeric'});
+      const res = `<span class="${x.res === 'W' ? 'wl w' : x.res === 'L' ? 'wl l' : 'wl'}">${x.res}</span>`;
+      const cells = x.ln && Object.keys(x.ln.vals).length ? cols.map(c => `<span>${esc(String(readDef(x.ln.vals, c[1]) ?? '–'))}</span>`).join('') : `<span style="grid-column:span ${cols.length};text-align:left;color:var(--muted)">Did not play</span>`;
+      return `<div class="pr" role="button" style="${tmpl}" data-h="${h(() => go('game', {lg: p.lg, path: x.e.path, id: x.e.id, tab: 'box'}))}"><span>${esc(dt)} ${x.home ? '' : '@'}${esc(x.opp.abbr || '')}${res}</span>${cells}</div>`;
+    }).join('');
+    html += `<div class="pbx"><div class="sc2 wide"><div class="pr ph2" style="${tmpl}"><span>GAME LOG</span>${cols.map(c => `<span>${esc(sh(c[0]))}</span>`).join('')}</div>${rows}</div></div>`;
+    html += `<div class="sub">Last ${d.games.length} games from ESPN box scores. Tap a game for its box score.</div>`;
+    return html;
+  }
+};
 
 /* ---------- GAME ---------- */
 const BET_SUBS = lg => ['lines'].concat(lg === 'nfl' || lg === 'nhl' ? ['props'] : [], lg === 'nfl' || lg === 'cfb' ? ['model'] : []);
@@ -2847,7 +3019,8 @@ function playerTables(s, ev, teamId){
       const star = hit(at);
       const nm = boxName(at);
       const pos = !fb && at.position && at.position.abbreviation ? `<small class="pos">${esc(at.position.abbreviation)}</small>` : '';
-      return `<div class="pr${star ? ' bet' : ''}" style="${tmpl}"><span>${star ? '<b style="color:var(--green-t)">★ </b>' : ''}${esc(nm)}${pos}</span>${idx.map(i => `<span>${esc(a.stats[i] ?? '')}</span>`).join('')}</div>`;
+      const tap = at.id || at.displayName ? ` role="button" data-h="${h(() => go('player', {lg: ev.lg, aid: at.id, name: at.displayName || nm, team: String(teamId), teamAbbr: (String(ev.home.id) === String(teamId) ? ev.home : ev.away).abbr}))}"` : '';
+      return `<div class="pr${star ? ' bet' : ''}"${tap} style="${tmpl}"><span>${star ? '<b style="color:var(--green-t)">★ </b>' : ''}${esc(nm)}${pos}</span>${idx.map(i => `<span>${esc(a.stats[i] ?? '')}</span>`).join('')}</div>`;
     });
     if (!rows.length) return '';
     const tot = (c.totals || []).length && fb && ['passing', 'rushing', 'receiving'].includes(c.name)
