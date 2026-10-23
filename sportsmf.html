@@ -475,7 +475,7 @@ const TEAM_LGS = LEAGUES.filter(l => l.type === 'team');
 const COLLEGE_LGS = LEAGUES.filter(l => l.college);
 const BOOKS = ['DraftKings','FanDuel','Bet365','BetMGM','Fanatics','Hard Rock','theScore','BetRivers','betPARX','Caesars','ESPN BET'];
 const BOOK_MAP = {draftkings:'DraftKings', fanduel:'FanDuel', betmgm:'BetMGM', caesars:'Caesars', espnbet:'ESPN BET', bet365:'Bet365', fanatics:'Fanatics', hardrock:'Hard Rock', hardrockbet:'Hard Rock', betrivers:'BetRivers', thescore:'theScore', betparx:'betPARX'};
-const BUILD = '2026-10-22 v43';
+const BUILD = '2026-10-22 v44';
 /* The Call Sheet lives on the same site (jibboo72.github.io), so its saved
    data and its published odds file are both readable from here. */
 const CS_KEY = 'nfl-call-sheet-v3';
@@ -529,12 +529,46 @@ function save(){ store.set('themeSet', true); store.set('favs', S.favs); store.s
 /* Call Sheet bets, read-only. Paper bets are skipped, same as the Call
    Sheet's own bankroll. Stakes there are dollars, so they're converted to
    units here with your SportsMF unit size. */
+/* Where the Call Sheet's data comes from. On an iPhone each home-screen
+   icon has its own private storage, so SportsMF opened from its own icon
+   can't see the Call Sheet's. The Call Sheet copies everything to
+   data/sync.json in your repo; SportsMF reads that and uses whichever copy
+   has more bets (the phone's own copy wins when both are complete, since
+   it's the freshest). */
+const CS_SYNC_API = 'https://api.github.com/repos/Jibboo72/callsheet-data/contents/data/sync.json?ref=main';
+const CS_SYNC_RAW = 'https://raw.githubusercontent.com/Jibboo72/callsheet-data/main/data/sync.json';
+let CS_REMOTE = (() => { try { return JSON.parse(localStorage.getItem('smf.csRemote') || 'null'); } catch (e){ return null; } })();
+let _csRemoteAt = 0;
+function csState(){
+  let local = null;
+  try { const raw = localStorage.getItem(CS_KEY); if (raw) local = JSON.parse(raw); } catch (e){}
+  const remote = CS_REMOTE && CS_REMOTE.data;
+  const n = x => ((x && x.bank && x.bank.bets) || []).length;
+  if (remote && n(remote) > n(local)) return remote;
+  return local || remote || null;
+}
+async function loadRemoteCS(force){
+  if (DEMO || !S.showCS) return;
+  if (!force && Date.now() - _csRemoteAt < 90000) return;
+  _csRemoteAt = Date.now();
+  let data = null;
+  try {
+    const r = await fetch(CS_SYNC_API + '&t=' + Date.now(), {headers: {Accept: 'application/vnd.github.raw+json'}, cache: 'no-store'});
+    if (r.ok) data = await r.json();
+  } catch (e){}
+  if (!data){ try { const r = await fetch(CS_SYNC_RAW + '?t=' + Date.now(), {cache: 'no-store'}); if (r.ok) data = await r.json(); } catch (e){} }
+  if (!data || !data.bank) return;
+  const at = (data._sync && data._sync.at) || '';
+  if (CS_REMOTE && CS_REMOTE.at === at) return;
+  CS_REMOTE = {at, data};
+  try { localStorage.setItem('smf.csRemote', JSON.stringify(CS_REMOTE)); } catch (e){}
+  _cs = {t: 0, v: []};
+}
 function csBets(){
   if (!S.showCS || DEMO) return [];
   try {
-    const raw = localStorage.getItem(CS_KEY);
-    if (!raw) return [];
-    const s = JSON.parse(raw);
+    const s = csState();
+    if (!s) return [];
     const list = (s && s.bank && s.bank.bets) || [];
     return list.filter(b => b && !b.paper).map(b => {
       const stake = +b.stake || 0, odds = parseInt(b.odds, 10);
@@ -589,9 +623,8 @@ function csWeekNow(){
 function csWeekStats(wk){
   if (!S.showCS || DEMO) return null;
   try {
-    const raw = localStorage.getItem(CS_KEY);
-    if (!raw) return null;
-    const s = JSON.parse(raw);
+    const s = csState();
+    if (!s) return null;
     const bets = (s && s.bank && s.bank.bets) || [];
     let staked = 0, ret = 0, open = 0, w = 0, l = 0, p = 0;
     const dec = am => { am = Number(am); if (!am || isNaN(am)) return null; return am > 0 ? 1 + am / 100 : 1 + 100 / Math.abs(am); };
@@ -616,9 +649,8 @@ function csWeekStats(wk){
 function csPicks(){
   if (DEMO) return [];
   try {
-    const raw = localStorage.getItem(CS_KEY);
-    if (!raw) return [];
-    const s = JSON.parse(raw);
+    const s = csState();
+    if (!s) return [];
     const weeks = [...new Set([s.week, csWeekNow()].filter(w => w !== null && w !== undefined).map(String))];
     const out = [];
     weeks.forEach(wk => {
@@ -1298,6 +1330,7 @@ async function render(silent){
   if (!silent){ v.setAttribute('aria-busy', 'true'); v.innerHTML = '<div class="empty">Loading…</div>'; $('#top').classList.toggle('inner', R.stack.length > 1); $('#navA').textContent = ''; $('#navB').textContent = ''; $('#navR').textContent = ''; $('#navBackLbl').textContent = navName(R.stack[R.stack.length - 2]); }
   const avail = v.clientHeight - 16;
   try {
+    await loadRemoteCS().catch(() => {});
     const data = V.load ? await V.load(s.p) : null;
     if (seq !== seqNo) return;
     FITKEY = s.name + '|' + (s.p.tab || s.p.mode || '') + '|' + window.innerHeight;
