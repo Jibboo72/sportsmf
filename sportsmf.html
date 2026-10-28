@@ -163,6 +163,19 @@ button.lb{width:100%;border-left:0;border-right:0;border-top:0;background:none;t
 .fsit .to i.on{background:var(--ink)}
 .rz{display:inline-block;margin-left:8px;padding:1px 6px;border-radius:5px;background:var(--red-bg);color:var(--red);font:800 11px var(--body);vertical-align:5px;letter-spacing:.4px}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.clvt{display:inline-block;font:800 11px var(--disp);letter-spacing:.5px;border-radius:999px;padding:2px 7px;margin-left:4px;background:var(--soft);color:var(--muted);vertical-align:1px}
+.clvt.won{color:var(--green-t);background:var(--green-bg)}.clvt.lost{color:var(--red)}
+.clvbox{border:1.5px solid var(--line);border-radius:14px;padding:10px 12px;display:flex;flex-direction:column;gap:4px}.clvbox>div:first-child{display:flex;justify-content:space-between;align-items:baseline}.clvbox b{font:900 20px var(--disp)}
+.ins{display:flex;flex-direction:column;gap:6px}.ins>div{font:600 15px/1.35 var(--body);border-left:3px solid var(--line);padding:2px 0 2px 10px}.ins .up{border-color:var(--green-t)}.ins .down{border-color:var(--red)}
+.rrow{display:grid;grid-template-columns:1fr 70px 64px 52px;gap:6px;padding:9px 12px;border-top:1px solid var(--line);font:600 15px var(--body);font-variant-numeric:tabular-nums}.rrow>span:not(:first-child){text-align:right}.rrow.hd{border-top:0;background:var(--soft);font:700 12px var(--body);letter-spacing:.5px;color:var(--muted);text-transform:uppercase}
+.rrow .pos,.stat .pos,b.pos{color:var(--green-t)}.rrow .neg,b.neg{color:var(--red)}
+.tiles2b{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.swsum{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.swsum>div{border:1.5px solid var(--line);border-radius:12px;padding:8px 10px;display:flex;flex-direction:column}.swsum b{font:900 24px var(--disp)}
+.sweat{display:block;width:100%;text-align:left;background:none;border:1.5px solid var(--line);border-radius:14px;padding:10px 12px;margin-bottom:8px;color:var(--ink);cursor:pointer}
+.sweat .sw1{display:flex;justify-content:space-between;align-items:center;font:700 14px var(--body);color:var(--muted)}.sweat .sw1 small{font-weight:600;margin-left:6px}
+.sweat .pc{font:900 30px/1 var(--disp)}
+.sweat .sw2{display:flex;justify-content:space-between;gap:10px;margin-top:4px;font:600 15px var(--body)}.sweat .sw2 b{font-weight:800}.sweat .sw2 span{color:var(--muted);text-align:right}
+.sweat .track{height:8px;border-radius:4px;background:var(--silver);margin-top:8px;overflow:hidden}.sweat .track i{display:block;height:100%;border-radius:4px;transition:width .6s ease}
 .pick{border:1.5px solid var(--line);border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:12px}
 .pkhd{display:flex;align-items:center;gap:10px}
 .pklbl{font:900 20px var(--disp);letter-spacing:.4px;text-transform:uppercase}
@@ -475,7 +488,7 @@ const TEAM_LGS = LEAGUES.filter(l => l.type === 'team');
 const COLLEGE_LGS = LEAGUES.filter(l => l.college);
 const BOOKS = ['DraftKings','FanDuel','Bet365','BetMGM','Fanatics','Hard Rock','theScore','BetRivers','betPARX','Caesars','ESPN BET'];
 const BOOK_MAP = {draftkings:'DraftKings', fanduel:'FanDuel', betmgm:'BetMGM', caesars:'Caesars', espnbet:'ESPN BET', bet365:'Bet365', fanatics:'Fanatics', hardrock:'Hard Rock', hardrockbet:'Hard Rock', betrivers:'BetRivers', thescore:'theScore', betparx:'betPARX'};
-const BUILD = '2026-10-22 v44';
+const BUILD = '2026-10-27 v45';
 /* The Call Sheet lives on the same site (jibboo72.github.io), so its saved
    data and its published odds file are both readable from here. */
 const CS_KEY = 'nfl-call-sheet-v3';
@@ -522,7 +535,8 @@ const S = {
   mfl: DEMO ? {host: '', year: '2026', league: '', franchise: '', apikey: ''} : store.get('mfl', {host: 'www45.myfantasyleague.com', year: '2026', league: '30258', franchise: '', apikey: ''}),
   ghToken: DEMO ? '' : store.get('ghToken', ''),
   fantasyPos: store.get('fantasyPos', 'bottom'),
-  bubbles: store.get('bubbles', ['nfl', 'nba', 'nhl', 'mlb', 'college', 'other'])
+  bubbles: store.get('bubbles', ['nfl', 'nba', 'nhl', 'mlb', 'college', 'other']),
+  clv: store.get('clv', {})
 };
 function save(){ store.set('themeSet', true); store.set('favs', S.favs); store.set('bets', S.bets); store.set('unit', S.unit); store.set('lastBook', S.lastBook); store.set('showCS', S.showCS); store.set('theme', S.theme); store.set('mfl', S.mfl); store.set('ghToken', S.ghToken); store.set('fantasyPos', S.fantasyPos); store.set('bubbles', S.bubbles); }
 
@@ -855,6 +869,7 @@ function norm(ev, lgKey){
     sit: {text: si.downDistanceText || si.shortDownDistanceText || '', poss: si.possession ? String(si.possession) : '', rz: !!si.isRedZone, outs: si.outs, balls: si.balls, strikes: si.strikes, on: [si.onFirst && '1st', si.onSecond && '2nd', si.onThird && '3rd'].filter(Boolean)},
     id: String(ev.id), lg: lgKey, path: ev._path || LG[lgKey].path, date: ev.date,
     name: ev.shortName || ev.name, state: st.state || 'pre', detail: st.shortDetail || st.detail || '',
+    per: (ev.status || c.status || {}).period || 0, clock: (ev.status || c.status || {}).displayClock || '',
     home: teamOf(home), away: teamOf(away),
     odds: {details: o.details, ou: o.overUnder, homeML: o.homeTeamOdds && o.homeTeamOdds.moneyLine, awayML: o.awayTeamOdds && o.awayTeamOdds.moneyLine},
     net: bc
@@ -863,6 +878,9 @@ function norm(ev, lgKey){
 function favOf(teamName, lgKey){ return S.favs.find(f => f.lg.includes(lgKey) && (same(f.name, teamName) || same(f.label, teamName))); }
 const isFav = ev => !!(favOf(ev.home.name, ev.lg) || favOf(ev.away.name, ev.lg));
 /* Pass a game (not just an id) to include linked Call Sheet bets too. */
+const EVS_SEEN = new Map();
+function rememberEvs(evs){ (evs || []).forEach(e => { if (e && e.id) EVS_SEEN.set(e.lg + ':' + e.id, e); }); }
+function evForBet(b){ for (const e of EVS_SEEN.values()){ if (b.cs ? (e.lg === b.lg && csMatches(b, e)) : (e.id === String(b.eventId) && e.lg === b.lg)) return e; } return null; }
 function betsFor(x){
   const isEv = x && typeof x === 'object';
   const id = String(isEv ? x.id : x);
@@ -1124,7 +1142,7 @@ function propRead(b, ev, s){
   if (v === null && !fin) return {cls: '', text: 'Not in the box score yet'};
   const val = v === null ? 0 : v;
   const lbl = `${val} ${k[2]}`;
-  const ex = o => Object.assign(o, {val, line, side});
+  const ex = o => Object.assign(o, {val, line, side, stat: k[2]});
   if (side === 'over'){
     if (val > line) return ex({cls: 'up', text: lbl + ' · hit'});
     return ex(fin ? {cls: 'down', text: lbl + ' · missed'} : {cls: '', text: `${lbl} · need ${Math.floor(line) + 1 - val} more`});
@@ -1161,12 +1179,13 @@ function propReadFb(b, ev, s){
   const v = boxStat(s, test, k[1], k[2]);
   const val = v === null ? 0 : v;
   const lbl = `${val} ${k[3]}`;
+  const ex = o => Object.assign(o, {val, line, side, stat: k[3]});
   if (side === 'over'){
-    if (val > line) return {cls: 'up', text: lbl + ' · hit'};
-    return fin ? {cls: 'down', text: lbl + ' · missed'} : {cls: '', text: `${lbl} · need ${Math.floor(line) + 1 - val} more`};
+    if (val > line) return ex({cls: 'up', text: lbl + ' · hit'});
+    return ex(fin ? {cls: 'down', text: lbl + ' · missed'} : {cls: '', text: `${lbl} · need ${Math.floor(line) + 1 - val} more`});
   }
-  if (val > line) return {cls: 'down', text: lbl + ' · over'};
-  return fin ? {cls: 'up', text: lbl + ' · hit'} : {cls: '', text: `${lbl} · ${n1(line - val)} under`};
+  if (val > line) return ex({cls: 'down', text: lbl + ' · over'});
+  return ex(fin ? {cls: 'up', text: lbl + ' · hit'} : {cls: '', text: `${lbl} · ${n1(line - val)} under`});
 }
 /* One line per bet: the pick on the left, how it's doing on the right. */
 function betState(b, ev, s){
@@ -1516,7 +1535,9 @@ function betSheet(b){
     <div class="btnrow"><button class="w" id="bW">Won</button><button class="l" id="bL">Lost</button><button id="bP">Push</button></div>
     ${b.status !== 'open' ? '<button class="ghost" id="bO">Reopen</button>' : ''}
     ${b.eventId ? '<button class="bigbtn" id="bG">Open game ›</button>' : ''}
+    <button class="ghost" id="bS">Share card</button>
     <button class="ghost danger" id="bD">Delete bet</button>`);
+  $('#bS').onclick = () => { closeSheet(); shareBetCard(b, evForBet(b)); };
   const setS = s => { b.status = s; b.settled = s === 'open' ? null : Date.now(); save(); closeSheet(); render(); };
   $('#bW').onclick = () => setS('won'); $('#bL').onclick = () => setS('lost'); $('#bP').onclick = () => setS('push');
   if ($('#bO')) $('#bO').onclick = () => setS('open');
@@ -1529,9 +1550,12 @@ function csSheet(b){
     <h2>${esc(b.pick)} ${b.odds !== null ? `<span style="color:var(--muted)">${fmtOdds(b.odds)}</span>` : ''}</h2>
     <p class="sub" style="font-size:16px">${money(b.stake)} staked (${b.units}u)${b.status !== 'open' ? ' · ' + b.status.toUpperCase() + ' ' + fmtU(profit(b)) : ' · open'}</p>
     <p class="sub">This bet lives in your Call Sheet. Grade or edit it there and it updates here.</p>
+    ${clvFor(b) ? `<p class="sub">Closing line value: ${clvTag(clvFor(b))}</p>` : ''}
     <a class="bigbtn blue" style="text-decoration:none" href="${CS_URL}">Open Call Sheet ›</a>
+    <button class="ghost" id="bS">Share card</button>
     <button class="ghost" id="closeSheetBtn">Close</button>`);
   $('#closeSheetBtn').onclick = closeSheet;
+  $('#bS').onclick = () => { closeSheet(); shareBetCard(b, evForBet(b)); };
 }
 
 /* ---------- NFL props from the Call Sheet odds file ---------- */
@@ -1960,6 +1984,7 @@ VIEWS.tonight = {
     learnLogos(evs);
     const seen = new Set();
     const mine = evs.filter(e => (isFav(e) || betsFor(e).length) && !seen.has(e.id) && seen.add(e.id)).sort(sortEvents);
+    rememberEvs(mine); recordOwnClv(mine);
     let fantasy = null;
     if (mflOn() && S.mfl.franchise){
       try { const snap = await mflSnapshot(); if (myMatchup(snap)) fantasy = snap; } catch (e){}
@@ -1974,13 +1999,14 @@ VIEWS.tonight = {
     const f = p.bub ? '' : (p.filter || 'all');
     const chip = (lbl, k) => `<button class="chip ${f === k ? 'on' : ''}" data-h="${h(() => tab('tonight', {filter: k}))}">${lbl}</button>`;
     const bubs = S.bubbles.filter(id => BUBBLES[id]);
-    const header = (DEMO ? `<div class="demo-note">Demo · the bets here are made up by the model from today's real games. No real money.</div>` : '') + `<div class="row" style="margin-top:2px;flex-wrap:wrap"><h1 class="title">TONIGHT</h1><div class="chips sm">${chip('All','all')}${chip('My Teams','my')}${chip('Action','bet')}</div></div>
+    const header = (DEMO ? `<div class="demo-note">Demo · the bets here are made up by the model from today's real games. No real money.</div>` : '') + `<div class="row" style="margin-top:2px;flex-wrap:wrap"><h1 class="title">TONIGHT</h1><div class="chips sm">${chip('All','all')}${chip('My Teams','my')}${chip('Action','bet')}${chip('🔥 Sweat','sweat')}</div></div>
       ${bubs.length ? `<div class="bubs">${bubs.map(id => bubbleHtml(id, p.bub === id, () => p.bub === id ? tab('tonight') : tab('tonight', {bub: id}))).join('')}</div>` : ''}`;
     if (d.bub){
       if (!d.lp) return header + '<div class="empty">Every league is already on its own bubble.</div>';
       const sub = d.lgs.length > 1 ? `<div class="chips sm" style="margin-top:10px">${d.lgs.map(k => `<button class="chip ${d.lp.lg === k ? 'on' : ''}" data-h="${h(() => tab('tonight', {bub: p.bub, blg: k}))}">${esc(LG[k].name)}</button>`).join('')}</div>` : '';
       return header + sub + `<div style="margin-top:${sub ? 6 : 10}px">` + VIEWS.league.build(d.lp, d.league, avail) + '</div>';
     }
+    if (f === 'sweat') return `${header}<div style="margin-top:8px">${updLine('pull down to refresh')}</div><div style="margin-top:10px">${sweatView(d)}</div>`;
     let list = d.evs;
     if (f === 'my') list = list.filter(isFav);
     if (f === 'bet') list = list.filter(e => betsFor(e).length);
@@ -2845,7 +2871,7 @@ function pickCard(d, ev, p){
   const mk = P.mh !== null;
   let html = `<div class="pick">
     <div class="pkhd"><span class="pklbl">Prediction</span><span class="conf ${conf >= 60 ? 'hi' : ''}">${conf}% confidence</span>
-      ${navigator.share ? `<button class="iconbtn" aria-label="Share this pick" data-h="${h(() => sharePick(ev, P, story))}"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg></button>` : ''}</div>
+      ${true ? `<button class="iconbtn" aria-label="Share this pick" data-h="${h(() => sharePickCard(ev, P, story))}"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg></button>` : ''}</div>
     <div class="pkscore"><div class="pkcols"><span></span><span>Ours</span><span>${mk ? 'Market' : ''}</span></div>${row(A, P.ap, !favH, mk ? P.ma : null)}${row(H, P.hp, favH, mk ? P.mh : null)}
       <div class="pkfoot">${P.tot !== null ? `Projected total ${Math.round(P.tot * 10) / 10}` : ''}${mk ? ' · market score from the line and total' : ''}</div></div>
     <div class="pktxt ${open ? 'open' : ''}">${story.map(s2 => `<p>${esc(s2)}</p>`).join('')}</div>
@@ -2882,6 +2908,486 @@ function agoText(ts){ const m = Math.round((Date.now() - ts) / 60000); return m 
 function sharePick(ev, P, story){
   const txt = `SportsMF pick: ${ev.away.abbr} ${P.ap} – ${ev.home.abbr} ${P.hp} (${Math.round(Math.max(P.wp, 1 - P.wp) * 100)}% confidence)\n${story.slice(0, 3).join(' ')}`;
   try { navigator.share({title: `${ev.away.abbr} @ ${ev.home.abbr}`, text: txt}).catch(() => {}); } catch (e){}
+}
+
+/* ================= INSIGHTS: CLV, RESULTS, MODEL SCORECARD =================
+   Closing lines come from your own data files: the NFL games file keeps
+   nflverse closing spreads/totals/moneylines, the college ratings file keeps
+   the final line and total. Bets logged in SportsMF use ESPN's line once the
+   game is final. */
+const NFL_NAMES = {ARI:['Arizona','Cardinals'],ATL:['Atlanta','Falcons'],BAL:['Baltimore','Ravens'],BUF:['Buffalo','Bills'],CAR:['Carolina','Panthers'],CHI:['Chicago','Bears'],CIN:['Cincinnati','Bengals'],CLE:['Cleveland','Browns'],DAL:['Dallas','Cowboys'],DEN:['Denver','Broncos'],DET:['Detroit','Lions'],GB:['Green Bay','Packers'],HOU:['Houston','Texans'],IND:['Indianapolis','Colts'],JAX:['Jacksonville','Jaguars'],KC:['Kansas City','Chiefs'],LA:['Los Angeles','Rams'],LAC:['Los Angeles','Chargers'],LV:['Las Vegas','Raiders'],MIA:['Miami','Dolphins'],MIN:['Minnesota','Vikings'],NE:['New England','Patriots'],NO:['New Orleans','Saints'],NYG:['New York','Giants'],NYJ:['New York','Jets'],PHI:['Philadelphia','Eagles'],PIT:['Pittsburgh','Steelers'],SEA:['Seattle','Seahawks'],SF:['San Francisco','49ers'],TB:['Tampa Bay','Buccaneers'],TEN:['Tennessee','Titans'],WAS:['Washington','Commanders']};
+function nflTeamObj(ab){ const n = NFL_NAMES[normAbbr(ab)] || [ab, ab]; return {abbr: ab, short: n[1], name: n[0] + ' ' + n[1], loc: n[0]}; }
+function cfbTeamObj(name, list){ const t = (list || []).find(x => x.team === name) || {}; return {abbr: t.abbr || '', short: name, name: name + (t.mascot ? ' ' + t.mascot : ''), loc: name}; }
+const implied = o => { o = +o; if (!o) return null; return o > 0 ? 100 / (o + 100) : -o / (-o + 100); };
+let CLV_FILES = null, _clvAt = 0;
+async function loadClvFiles(){
+  if (DEMO) return null;
+  if (CLV_FILES && Date.now() - _clvAt < 20 * 60000) return CLV_FILES;
+  const [n, c] = await Promise.allSettled([modelFile('nfl'), modelLookup('cfb')]);
+  CLV_FILES = {nfl: n.status === 'fulfilled' ? n.value : null, cfb: c.status === 'fulfilled' ? c.value : null};
+  _clvAt = Date.now();
+  return CLV_FILES;
+}
+/* The closing numbers for a Call Sheet game bet: {ev (team objects), homeSpread, total, mlHome, mlAway, final} */
+function closeForCs(b){
+  if (!CLV_FILES) return null;
+  const id = (b.games || [])[0];
+  if (b.lg === 'nfl'){
+    const g = ((CLV_FILES.nfl && CLV_FILES.nfl.games) || []).find(x => String(x.id) === String(id));
+    if (!g || !('margin' in g) || g.margin === null || g.margin === undefined) return null;
+    return {ev: {home: nflTeamObj(g.home), away: nflTeamObj(g.away)}, homeSpread: g.spread !== null && g.spread !== undefined ? -g.spread : null, total: g.total ?? null, mlHome: g.ml_home ?? null, mlAway: g.ml_away ?? null, g};
+  }
+  const F = CLV_FILES.cfb; if (!F) return null;
+  const g = (F.games || []).find(x => String(x.id) === String(id));
+  if (!g || g.hs === null || g.hs === undefined) return null;
+  const list = [].concat(F.teams || [], (F._fcsFile && F._fcsFile.teams) || []);
+  return {ev: {home: cfbTeamObj(g.home, list), away: cfbTeamObj(g.away, list)}, homeSpread: g.line ?? null, total: g.line_total ?? null, mlHome: null, mlAway: null, g};
+}
+/* CLV for one read bet {type, side, line} against the close. Spread/total in points, moneyline in % win chance. */
+function clvCalc(r, close, odds){
+  if (!r || !close) return null;
+  if (r.type === 'spread' && close.homeSpread !== null){
+    const c = r.side === 'home' ? close.homeSpread : -close.homeSpread;
+    return {v: Math.round((r.line - c) * 10) / 10, unit: 'pts', close: c};
+  }
+  if (r.type === 'total' && close.total !== null){
+    const v = r.side === 'over' ? close.total - r.line : r.line - close.total;
+    return {v: Math.round(v * 10) / 10, unit: 'pts', close: close.total};
+  }
+  if (r.type === 'ml'){
+    const cm = r.side === 'home' ? close.mlHome : close.mlAway;
+    const a = implied(odds), c = implied(cm);
+    if (a === null || c === null) return null;
+    return {v: Math.round((c - a) * 1000) / 10, unit: '%', close: cm};
+  }
+  return null;
+}
+function clvFor(b){
+  if (b.status === 'open' && !b.cs) return null;
+  if (b.cs){
+    if (b.type !== 'side' || !(b.games || []).length) return null;
+    const close = closeForCs(b); if (!close) return null;
+    return clvCalc(parsePick(b.pick, b.market, close.ev), close, b.odds);
+  }
+  const c = (S.clv || {})[b.id];
+  return c || null;
+}
+/* SportsMF's own game bets: record CLV from ESPN's final line the first time the finished game is on screen. */
+function recordOwnClv(evs){
+  let ch = false; S.clv = S.clv || {};
+  (evs || []).forEach(ev => {
+    if (ev.state !== 'post') return;
+    S.bets.forEach(b => {
+      if (b.eventId !== String(ev.id) || S.clv[b.id] || !['spread', 'total', 'ml'].includes(b.type)) return;
+      const hl = parseSpread(ev);
+      const close = {homeSpread: hl, total: ev.odds.ou !== undefined && ev.odds.ou !== null && ev.odds.ou !== '' ? +ev.odds.ou : null, mlHome: ev.odds.homeML ?? null, mlAway: ev.odds.awayML ?? null};
+      const v = clvCalc({type: b.type, side: b.side, line: +b.line}, close, b.odds);
+      if (v){ S.clv[b.id] = v; ch = true; }
+    });
+  });
+  if (ch) store.set('clv', S.clv);
+}
+function clvTag(c){
+  if (!c) return '';
+  const cls = c.v > 0 ? 'won' : c.v < 0 ? 'lost' : 'push';
+  return `<span class="clvt ${cls}" title="Closing line value">CLV ${c.v > 0 ? '+' : c.v < 0 ? '−' : ''}${Math.abs(c.v)}${c.unit === '%' ? '%' : ''}</span>`;
+}
+function clvSummary(bets){
+  const pts = [], pct = [];
+  bets.forEach(b => { const c = clvFor(b); if (!c) return; (c.unit === '%' ? pct : pts).push(c.v); });
+  const all = pts.concat(pct);
+  if (!all.length) return null;
+  return {n: all.length, beat: all.filter(v => v > 0).length, avgPts: pts.length ? pts.reduce((a, b) => a + b, 0) / pts.length : null, nPts: pts.length, avgPct: pct.length >= 5 ? pct.reduce((a, b) => a + b, 0) / pct.length : null};
+}
+/* ---------- results breakdown ---------- */
+function betMarketLbl(b){
+  if (b.type === 'parlay') return 'Parlays';
+  if (b.type === 'future') return 'Futures';
+  if (b.type === 'prop') return /anytime|\btd\b|touchdown/i.test(b.pick) ? 'TD props' : 'Player props';
+  if (b.cs){
+    if (b.market === 'td') return 'TD props';
+    if (b.market === 'total') return /(^|[^a-z])(tt|team total)/i.test(b.pick) ? 'Team totals' : 'Totals';
+    if (b.market === 'ml') return 'Moneylines';
+    if (/(^|[^a-z])(o|u|over|under)\s*\d/i.test(b.pick)) return 'Totals';
+    if (/\bml\b/i.test(b.pick)) return 'Moneylines';
+    return 'Spreads';
+  }
+  return {spread: 'Spreads', total: 'Totals', ml: 'Moneylines'}[b.type] || 'Other';
+}
+function betWhen(b){ const d = b.gdate ? new Date(b.gdate + 'T12:00:00') : new Date(b.date || b.ts || b.settled || Date.now()); return isNaN(d) ? null : d; }
+function sportLbl(b){ return b.lg === 'cfb' ? (b.fcs ? 'FCS' : 'College FB') : (LG[b.lg] ? LG[b.lg].name : String(b.lg || 'Other').toUpperCase()); }
+function modelEdgeBucket(b){
+  if (!b.cs || b.type !== 'side' || !CLV_FILES) return null;
+  const close = closeForCs(b); if (!close) return null;
+  const r = parsePick(b.pick, b.market, close.ev); if (!r || r.type !== 'spread') return null;
+  const g = close.g, M = b.lg === 'nfl' ? (g.proj ?? null) : (g.pem !== undefined && g.pem !== null ? -g.pem : null);
+  if (M === null) return null;
+  const e = (r.side === 'home' ? M : -M) + r.line;
+  return e >= 3 ? 'Model edge 3+' : e >= 1 ? 'Model edge 1–3' : e > -1 ? 'Model edge under 1' : 'Against the model';
+}
+function groupStats(bets, keyFn){
+  const m = new Map();
+  bets.forEach(b => {
+    const k = keyFn(b); if (!k) return;
+    const s = m.get(k) || {k, w: 0, l: 0, p: 0, u: 0, risk: 0};
+    if (b.status === 'won') s.w++; else if (b.status === 'lost') s.l++; else s.p++;
+    s.u += profit(b); s.risk += +b.units || 0;
+    m.set(k, s);
+  });
+  return [...m.values()].map(s => Object.assign(s, {n: s.w + s.l + s.p, roi: s.risk ? s.u / s.risk * 100 : 0})).sort((a, b) => b.u - a.u);
+}
+const DOW = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const RES_DIMS = [['sport', 'Sport', b => sportLbl(b)], ['market', 'Bet type', betMarketLbl], ['book', 'Book', b => b.cs ? null : (b.book || null)],
+  ['day', 'Day', b => { const d = betWhen(b); return d ? DOW[d.getDay()] : null; }], ['edge', 'Model edge', modelEdgeBucket],
+  ['clv', 'Closing line', b => { const c = clvFor(b); return c ? (c.v > 0 ? 'Beat the close' : c.v < 0 ? 'Worse than close' : 'Matched the close') : null; }],
+  ['price', 'Price', b => { const o = +b.odds; return !o ? null : o >= 200 ? 'Long shots (+200 or more)' : o > 0 ? 'Underdogs (+100 to +199)' : o >= -130 ? 'Near even (−101 to −130)' : 'Favorites (−131 or shorter)'; }]];
+function insightLines(settled){
+  const out = [];
+  RES_DIMS.forEach(([k, lbl, fn]) => groupStats(settled, fn).forEach(s => { if (s.n >= 8) out.push(Object.assign({dim: lbl}, s)); }));
+  const good = out.filter(s => s.u > 0).sort((a, b) => b.u - a.u).slice(0, 3);
+  const bad = out.filter(s => s.u < 0).sort((a, b) => a.u - b.u).slice(0, 3);
+  const line = s => ({cls: s.u >= 0 ? 'up' : 'down', text: `${fmtU(s.u)} on ${s.k.charAt(0).toLowerCase() === s.k.charAt(0) ? s.k : s.k} (${s.w}-${s.l}${s.p ? '-' + s.p : ''}, ROI ${s.roi >= 0 ? '+' : ''}${Math.round(s.roi)}%)`});
+  return good.map(line).concat(bad.map(line));
+}
+function profitSvg(settled){
+  const pts = settled.map(b => ({t: (betWhen(b) || new Date()).getTime(), u: profit(b)})).sort((a, b) => a.t - b.t);
+  if (pts.length < 2) return '';
+  let c = 0; const ser = pts.map(x => ({t: x.t, c: (c += x.u)}));
+  const W = 336, H = 130, P = 8, t0 = ser[0].t, t1 = ser[ser.length - 1].t || t0 + 1;
+  const lo = Math.min(0, ...ser.map(x => x.c)), hi = Math.max(0, ...ser.map(x => x.c)), span = (hi - lo) || 1;
+  const X = t => P + (W - 2 * P) * ((t - t0) / ((t1 - t0) || 1)), Y = v => P + (H - 2 * P) * (1 - (v - lo) / span);
+  const d = ser.map((x, i) => `${i ? 'L' : 'M'}${X(x.t).toFixed(1)} ${Y(x.c).toFixed(1)}`).join(' ');
+  const end = ser[ser.length - 1].c, col = end >= 0 ? 'var(--green-t)' : 'var(--red)';
+  return `<svg class="flowsvg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Profit over time"><line x1="${P}" y1="${Y(0).toFixed(1)}" x2="${W - P}" y2="${Y(0).toFixed(1)}" stroke="var(--muted)" stroke-opacity=".5" stroke-dasharray="4 4"/>
+    <path d="${d} L${X(t1).toFixed(1)} ${Y(0).toFixed(1)} L${X(t0).toFixed(1)} ${Y(0).toFixed(1)} Z" fill="${col}" fill-opacity=".12"/><path d="${d}" fill="none" stroke="${col}" stroke-width="2.4" stroke-linejoin="round"/>
+    <text x="${W - P}" y="${(Y(end) - 6).toFixed(1)}" text-anchor="end" font-size="13" font-weight="900" fill="${col}" font-family="Saira Condensed,system-ui">${esc(fmtU(end))}</text></svg>`;
+}
+function resultsView(p){
+  const all = S.bets.concat(csBets()).filter(b => b.status !== 'open' && b.type !== 'future');
+  const span = p.rspan || 'season';
+  const since = span === '30' ? Date.now() - 30 * 864e5 : span === 'wk' ? fromYmd(today()).getTime() - 7 * 864e5 : 0;
+  const settled = all.filter(b => { const d = betWhen(b); return !since || (d && d.getTime() >= since); });
+  const w = settled.filter(b => b.status === 'won').length, l = settled.filter(b => b.status === 'lost').length, pu = settled.filter(b => b.status === 'push').length;
+  const u = settled.reduce((a, b) => a + profit(b), 0), risk = settled.reduce((a, b) => a + (+b.units || 0), 0);
+  const cl = clvSummary(settled);
+  const dim = RES_DIMS.find(x => x[0] === p.rdim) || RES_DIMS[0];
+  const rows = groupStats(settled, dim[2]);
+  const cls = v => v > 0 ? 'pos' : v < 0 ? 'neg' : '';
+  const chip = (k, l2, key) => `<button class="chip ${(p[key] || (key === 'rspan' ? 'season' : 'sport')) === k ? 'on' : ''}" data-h="${h(() => setP({[key]: k}))}">${l2}</button>`;
+  const ins = insightLines(settled);
+  let html = `<div class="chips sm">${chip('season', 'Season', 'rspan')}${chip('30', 'Last 30 days', 'rspan')}${chip('wk', 'Last 7 days', 'rspan')}</div>
+    <div class="tiles3" style="margin-top:10px"><div class="stat"><span class="lbl">Record</span><b style="font-size:22px">${w}-${l}${pu ? '-' + pu : ''}</b></div>
+      <div class="stat"><span class="lbl">Units</span><b class="${cls(u)}">${fmtU(u)}</b></div>
+      <div class="stat"><span class="lbl">ROI</span><b class="${cls(u)}" style="font-size:22px">${risk ? (u >= 0 ? '+' : '') + Math.round(u / risk * 100) + '%' : '—'}</b></div></div>`;
+  if (cl) html += `<div class="clvbox"><div><span class="lbl">Closing line value</span><b class="${cl.beat / cl.n >= 0.5 ? 'pos' : 'neg'}">Beat the close ${Math.round(cl.beat / cl.n * 100)}%</b></div><div class="sub">${cl.avgPts !== null ? `Average ${cl.avgPts >= 0 ? '+' : '−'}${Math.abs(cl.avgPts).toFixed(1)} pts on ${cl.nPts} spreads and totals` : ''}${cl.avgPct !== null ? `${cl.avgPts !== null ? ' · ' : ''}moneylines ${cl.avgPct >= 0 ? '+' : '−'}${Math.abs(cl.avgPct).toFixed(1)}% win chance` : ''}. Over a season this is the truest sign of an edge.</div></div>`;
+  html += profitSvg(settled);
+  if (ins.length) html += `<div><div class="lbl" style="margin-bottom:6px">Where you win, and where you don't</div><div class="ins">${ins.map(x => `<div class="${x.cls}">${esc(x.text)}</div>`).join('')}</div></div>`;
+  html += `<div><div class="lbl" style="margin-bottom:6px">Break it down by</div><div class="chips sm scrollx">${RES_DIMS.map(([k, lbl2]) => chip(k, lbl2, 'rdim')).join('')}</div>
+    <div class="pbx" style="margin-top:8px"><div class="rrow hd"><span>${esc(dim[1])}</span><span>W-L-P</span><span>Units</span><span>ROI</span></div>
+    ${rows.length ? rows.map(s => `<div class="rrow"><span>${esc(s.k)}</span><span>${s.w}-${s.l}-${s.p}</span><span class="${cls(s.u)}">${esc(fmtU(s.u))}</span><span class="${cls(s.u)}">${s.roi >= 0 ? '+' : ''}${Math.round(s.roi)}%</span></div>`).join('') : '<div class="empty" style="padding:10px">Nothing to break down yet.</div>'}</div></div>`;
+  html += `<button class="bigbtn" data-h="${h(() => shareResults(span, {w, l, p: pu, u, risk, cl, ins, settled}))}">Share these results</button>`;
+  return html;
+}
+/* ---------- model scorecard ---------- */
+async function loadScoreFiles(){
+  const [n, c, e] = await Promise.allSettled([modelFile('nfl'), modelFile('cfb'), csFile(CS_EXPERTS)]);
+  return {nfl: n.status === 'fulfilled' ? n.value : null, cfb: c.status === 'fulfilled' ? c.value : null, ex: e.status === 'fulfilled' ? e.value : null};
+}
+const CS_EXPERTS = ['/callsheet-data/data/experts-2026.json', 'https://raw.githubusercontent.com/Jibboo72/callsheet-data/main/data/experts-2026.json'];
+function scoreNfl(F, EX){
+  const gs = ((F && F.games) || []).filter(g => 'margin' in g && g.margin !== null && g.margin !== undefined && g.proj !== null && g.proj !== undefined);
+  const r = {win: [0, 0], ats: [0, 0, 0], tot: [0, 0, 0], edge: [0, 0, 0], calls: [], ex: [0, 0, 0], exDis: [0, 0, 0]};
+  gs.forEach(g => {
+    if (g.margin !== 0) r.win[(g.margin > 0) === (g.proj > 0) ? 0 : 1]++;
+    if (g.spread !== null && g.spread !== undefined && g.proj !== g.spread){
+      const res = g.margin - g.spread, home = g.proj > g.spread, e = Math.abs(g.proj - g.spread);
+      const o = res === 0 ? 2 : ((home && res > 0) || (!home && res < 0)) ? 0 : 1;
+      r.ats[o]++; if (e >= 3) r.edge[o]++;
+      r.calls.push({g, e, o, side: home ? g.home : g.away, line: home ? -g.spread : g.spread});
+      const x = EX && EX.games && EX.games[g.id];
+      if (x && x.home !== x.away && res !== 0){
+        const exHome = x.home > x.away, eo = (exHome && res > 0) || (!exHome && res < 0) ? 0 : 1;
+        r.ex[eo]++;
+        if (exHome !== home) r.exDis[o]++;
+      }
+    }
+    const pts = ('hs' in g && g.hs !== null) ? g.hs + g.as : null;
+    if (pts !== null && g.total !== null && g.total !== undefined && g.ptot !== null && g.ptot !== undefined && g.ptot !== g.total){
+      r.tot[pts === g.total ? 2 : ((g.ptot > g.total) === (pts > g.total) ? 0 : 1)]++;
+    }
+  });
+  const lastWk = Math.max(0, ...r.calls.map(c => +c.g.wk || 0));
+  const wk = r.calls.filter(c => +c.g.wk === lastWk);
+  r.best = wk.filter(c => c.o === 0).sort((a, b) => b.e - a.e)[0] || null;
+  r.worst = wk.filter(c => c.o === 1).sort((a, b) => b.e - a.e)[0] || null;
+  r.wk = lastWk;
+  r.wkRec = [wk.filter(c => c.o === 0).length, wk.filter(c => c.o === 1).length];
+  return r;
+}
+function scoreCfb(F){
+  const gs = ((F && F.games) || []).filter(g => g.hs !== null && g.hs !== undefined && g.pem !== null && g.pem !== undefined);
+  const r = {win: [0, 0], ats: [0, 0, 0], tot: [0, 0, 0], edge: [0, 0, 0], calls: []};
+  gs.forEach(g => {
+    const m = g.hs - (g.as_ ?? g.as), M = -g.pem;
+    if (m !== 0) r.win[(m > 0) === (M > 0) ? 0 : 1]++;
+    if (g.ats === 'W' || g.ats === 'L' || g.ats === 'P'){
+      const o = g.ats === 'W' ? 0 : g.ats === 'L' ? 1 : 2;
+      r.ats[o]++; if (Math.abs(g.edge || 0) >= 3) r.edge[o]++;
+      const home = M > -(g.line ?? 0);
+      r.calls.push({g, e: Math.abs(g.edge || 0), o, side: home ? g.home : g.away, line: home ? g.line : -g.line, wk: g.wk});
+    }
+    const pts = g.hs + (g.as_ ?? g.as);
+    if (g.line_total !== null && g.line_total !== undefined && g.pem_total !== null && g.pem_total !== undefined && g.pem_total !== g.line_total) r.tot[pts === g.line_total ? 2 : ((g.pem_total > g.line_total) === (pts > g.line_total) ? 0 : 1)]++;
+  });
+  const lastWk = Math.max(0, ...r.calls.map(c => +c.g.wk || 0));
+  const wk = r.calls.filter(c => +c.g.wk === lastWk);
+  r.best = wk.filter(c => c.o === 0).sort((a, b) => b.e - a.e)[0] || null;
+  r.worst = wk.filter(c => c.o === 1).sort((a, b) => b.e - a.e)[0] || null;
+  r.wk = lastWk; r.wkRec = [wk.filter(c => c.o === 0).length, wk.filter(c => c.o === 1).length];
+  return r;
+}
+const recTxt = a => `${a[0]}-${a[1]}${a[2] ? '-' + a[2] : ''}`;
+const pctTxt = a => (a[0] + a[1]) ? Math.round(a[0] / (a[0] + a[1]) * 100) + '%' : '—';
+function scoreCard(title, r, nfl){
+  const tile = (lbl, a, note) => `<div class="stat"><span class="lbl">${lbl}</span><b style="font-size:22px">${recTxt(a)}</b><small class="sub ${(a[0] + a[1]) && a[0] / (a[0] + a[1]) >= 0.524 ? 'pos' : ''}" style="font-weight:700">${pctTxt(a)}${note ? ' ' + note : ''}</small></div>`;
+  const nm = x => nfl ? x : x;
+  const call = (c, good) => c ? `<div class="${good ? 'up' : 'down'}">${good ? 'Best call' : 'Worst miss'}: ${esc(nm(c.side))} ${c.line > 0 ? '+' : ''}${c.line === 0 ? 'PK' : (Math.round(c.line * 10) / 10)} (edge ${c.e.toFixed(1)}): ${esc(c.g.away)} ${c.g.as ?? c.g.as_}, ${esc(c.g.home)} ${c.g.hs}</div>` : '';
+  let html = `<div class="pick"><div class="pkhd"><span class="pklbl">${esc(title)}</span></div>
+    <div class="tiles2b">${tile('Winners', r.win)}${tile('Against the spread', r.ats)}${tile('Totals', r.tot)}${tile('Flagged edges 3+', r.edge)}</div>`;
+  if (r.wk) html += `<div><div class="lbl" style="margin-bottom:6px">Week ${r.wk}: ${r.wkRec[0]}-${r.wkRec[1]} ATS</div><div class="ins">${call(r.best, true)}${call(r.worst, false)}</div></div>`;
+  if (nfl && (r.ex[0] + r.ex[1])) html += `<div><div class="lbl" style="margin-bottom:6px">Your model vs the experts</div><div class="ins">
+      <div class="${(r.ats[0] / Math.max(1, r.ats[0] + r.ats[1])) >= (r.ex[0] / Math.max(1, r.ex[0] + r.ex[1])) ? 'up' : 'down'}">Model ATS ${recTxt(r.ats)} (${pctTxt(r.ats)}) · expert consensus ${recTxt(r.ex)} (${pctTxt(r.ex)})</div>
+      ${(r.exDis[0] + r.exDis[1]) ? `<div>When the model and the crowd disagree, the model is ${recTxt(r.exDis)} (${pctTxt(r.exDis)}).</div>` : ''}</div></div>`;
+  return html + '</div>';
+}
+function modelView(d){
+  if (!d || (!d.nfl && !d.cfb)) return '<div class="empty">Your ratings files aren\'t reachable right now.</div>';
+  let html = '';
+  if (d.nfl) html += scoreCard('NFL model', scoreNfl(d.nfl, d.ex), true);
+  if (d.cfb) html += scoreCard('College model', scoreCfb(d.cfb), false);
+  html += `<div class="sub">Every finished game this season, graded the same way the Our Pick card grades it. 52.4% against the spread is break-even at −110.${d.ex ? ` Expert consensus is the majority side from your expert ledger (${esc(d.ex.n_experts || '')} experts).` : ''}</div>`;
+  return html;
+}
+
+/* ================= SWEAT BOARD =================
+   Every bet in a live game with its chance to cash right now. The rest of
+   the game is treated as a normal spread of outcomes around the pregame
+   market (the line and total scaled to the time left), so a 3-point lead
+   with two minutes left is worth far more than the same lead at halftime. */
+const SWEAT_SD = {nfl: [13.5, 10.5], cfb: [16, 14], nba: [12, 17], cbb: [11, 15], nhl: [2.4, 2.2], chk: [2.4, 2.3], mlb: [4.4, 4.4]};
+function phi(z){ return normCdf(z); }
+function fracLeft(ev){
+  const per = +ev.per || 0, clk = clockSec(ev.clock || '0');
+  if (ev.state === 'post') return 0;
+  if (ev.state === 'pre' || !per) return 1;
+  if (/football/.test(ev.path)) return per > 4 ? 0.04 : Math.max(0.005, ((4 - per) * 900 + clk) / 3600);
+  if (ev.lg === 'nba') return per > 4 ? 0.04 : Math.max(0.005, ((4 - per) * 720 + clk) / 2880);
+  if (ev.lg === 'cbb') return per > 2 ? 0.04 : Math.max(0.005, ((2 - per) * 1200 + clk) / 2400);
+  if (/hockey/.test(ev.path)) return per > 3 ? 0.05 : Math.max(0.005, ((3 - per) * 1200 + clk) / 3600);
+  if (ev.lg === 'mlb'){
+    const d = String(ev.detail || '').toLowerCase();
+    const half = /bot|mid/.test(d) ? 1 : /end/.test(d) ? 2 : 0;
+    return per > 9 ? 1 / 18 : Math.max(1 / 36, (18 - ((per - 1) * 2 + half)) / 18);
+  }
+  return 0.5;
+}
+function poisTail(lam, k){ if (k <= 0) return 1; let p = Math.exp(-lam), c = p; for (let i = 1; i < k; i++){ p *= lam / i; c += p; } return Math.max(0, 1 - c); }
+/* chance this bet cashes, 0–1, or null if it can't be read */
+function cashChance(b, ev, s){
+  if (!ev || ev.state === 'pre') return null;
+  const hs = parseFloat(ev.home.score), as = parseFloat(ev.away.score);
+  const f = fracLeft(ev);
+  const r = betRead(b, ev);
+  if (r){
+    if (isNaN(hs) || isNaN(as)) return null;
+    const sd = SWEAT_SD[ev.lg] || [12, 14];
+    const hl = parseSpread(ev), ou = ev.odds.ou !== undefined && ev.odds.ou !== null && ev.odds.ou !== '' ? +ev.odds.ou : null;
+    const muM = (hl !== null ? -hl : 0) * f, sM = Math.max(0.001, sd[0] * Math.sqrt(f));
+    if (r.type === 'spread' || r.type === 'ml'){
+      const line = r.type === 'ml' ? 0 : +r.line;
+      const cur = r.side === 'home' ? hs - as : as - hs, mu = r.side === 'home' ? muM : -muM;
+      if (f === 0) return cur + line > 0 ? 1 : cur + line < 0 ? 0 : 0.5;
+      return 1 - phi((-line - cur - mu) / sM);
+    }
+    if (r.type === 'total'){
+      const cur = hs + as, mu = (ou !== null ? ou : r.line) * f, sT = Math.max(0.001, sd[1] * Math.sqrt(f));
+      if (f === 0) return cur === r.line ? 0.5 : ((cur > r.line) === (r.side === 'over') ? 1 : 0);
+      const pOver = 1 - phi((r.line - cur - mu) / sT);
+      return r.side === 'over' ? pOver : 1 - pOver;
+    }
+    if (r.type === 'tt'){
+      const cur = r.team === 'home' ? hs : as;
+      const tm = ou !== null ? (ou / 2 + (r.team === 'home' ? -1 : 1) * (hl !== null ? hl : 0) / 2) : r.line;
+      const mu = tm * f, sT = Math.max(0.001, sd[1] * 0.7 * Math.sqrt(f));
+      if (f === 0) return cur === r.line ? 0.5 : ((cur > r.line) === (r.side === 'over') ? 1 : 0);
+      const pOver = 1 - phi((r.line - cur - mu) / sT);
+      return r.side === 'over' ? pOver : 1 - pOver;
+    }
+    return null;
+  }
+  const pr = propRead(b, ev, s);
+  if (!pr) return null;
+  if (pr.cls === 'up' && (ev.state === 'post' || (pr.side || 'over') === 'over')) return 1;
+  if (pr.cls === 'down') return ev.state === 'post' || pr.side === 'under' ? 0 : null;
+  if (ev.state === 'post') return pr.cls === 'up' ? 1 : 0;
+  if (pr.val === undefined || pr.line === null || pr.line === undefined){
+    /* anytime TD with no touchdown yet: the pregame price says how likely, scaled to time left */
+    const p0 = implied(b.odds);
+    if (p0 === null || !/td|touchdown|anytime|goal/i.test(b.pick)) return null;
+    return 1 - Math.exp(Math.log(1 - Math.min(0.97, p0)) * f);
+  }
+  const st2 = String(pr.stat || '');
+  const counts = ['rec', 'SOG', 'G', 'A', 'reb', 'ast', '3PM', 'stl', 'blk', 'hits', 'blocks', 'pass TD'].includes(st2) || (st2 === 'pts' && /hockey/.test(ev.path));
+  const line = +pr.line, val = +pr.val;
+  let pOver;
+  if (counts){ const need = Math.floor(line) + 1 - val; pOver = need <= 0 ? 1 : poisTail(Math.max(0.01, line * f), need); }
+  else { const mu = line * f, sd2 = Math.max(0.5, 0.38 * line * Math.sqrt(f)); pOver = 1 - phi((line - val - mu) / sd2); }
+  return (pr.side || 'over') === 'over' ? pOver : 1 - pOver;
+}
+function betRisk(b){ return +b.units || 0; }
+function betWin(b){ if (b.cs){ const o = +b.odds; return !o ? b.units : o > 0 ? b.units * o / 100 : b.units * 100 / Math.abs(o); } return winUnits(b); }
+function sweatView(d){
+  const rows = [];
+  (d.evs || []).forEach(ev => {
+    if (ev.state === 'pre') return;
+    betsFor(ev).forEach(b => {
+      if (b.status !== 'open' && ev.state !== 'post') return;
+      const p = b.status === 'won' ? 1 : b.status === 'lost' ? 0 : cashChance(b, ev, ev._s);
+      rows.push({b, ev, p});
+    });
+  });
+  if (!rows.length) return '<div class="empty">No live bets right now. When a game you bet on starts, it shows up here with its chance to cash.</div>';
+  const live = rows.filter(x => x.ev.state === 'in' && x.b.status === 'open');
+  const done = rows.filter(x => !(x.ev.state === 'in' && x.b.status === 'open'));
+  live.sort((a, b) => (a.p === null ? 9 : Math.abs(a.p - 0.5)) - (b.p === null ? 9 : Math.abs(b.p - 0.5)));
+  const ev0 = live.filter(x => x.p !== null).reduce((a, x) => a + x.p * betWin(x.b) - (1 - x.p) * betRisk(x.b), 0);
+  const risk = live.reduce((a, x) => a + betRisk(x.b), 0);
+  const row = x => {
+    const st = betState(x.b, x.ev, x.ev._s), pc = x.p === null ? null : Math.round(x.p * 100);
+    const col = pc === null ? 'var(--muted)' : pc >= 60 ? 'var(--green-t)' : pc <= 40 ? 'var(--red)' : '#E0A100';
+    return `<button class="sweat" data-h="${h(() => go('game', {lg: x.ev.lg, path: x.ev.path, id: x.ev.id}))}">
+      <div class="sw1"><span class="mt">${esc(x.ev.away.abbr)} ${esc(x.ev.away.score)} · ${esc(x.ev.home.abbr)} ${esc(x.ev.home.score)} <small>${x.ev.state === 'in' ? liveDot : ''}${esc(x.ev.detail)}</small></span><span class="pc" style="color:${col}">${pc === null ? '—' : pc + '%'}</span></div>
+      <div class="sw2"><b>${esc(x.b.pick)}${x.b.odds !== null && x.b.odds !== undefined ? ' ' + esc(fmtOdds(x.b.odds)) : ''}</b><span>${esc(st.text)}</span></div>
+      ${pc === null ? '' : `<div class="track"><i style="width:${Math.max(2, pc)}%;background:${col}"></i></div>`}</button>`;
+  };
+  return `<div class="swsum"><div><span class="lbl">Live bets</span><b>${live.length}</b></div><div><span class="lbl">At risk</span><b>${(Math.round(risk * 100) / 100)}u</b></div><div><span class="lbl">Projected</span><b class="${ev0 > 0 ? 'pos' : ev0 < 0 ? 'neg' : ''}">${fmtU(ev0)}</b></div></div>
+    ${live.length ? `<div class="lbl" style="margin:12px 0 6px">Sweatiest first</div>${live.map(row).join('')}` : ''}
+    ${done.length ? `<div class="lbl" style="margin:14px 0 6px">Decided or final</div>${done.map(row).join('')}` : ''}
+    <div class="sub" style="margin-top:8px">Chance to cash uses the score, the time left and the pregame line and total. Player props use their pace and the prop number.</div>`;
+}
+/* ================= SHARE CARDS =================
+   Draws a 1080×1350 image on the phone and hands it to the Share sheet
+   (Messages, group chats, save to Photos). Team logos are drawn when ESPN
+   allows it, otherwise a colored badge with the abbreviation. */
+const SC = {W: 1080, H: 1350, bg: '#0D0F12', card: '#15181D', ink: '#F4F6F8', muted: '#9AA3AD', green: '#3DDC84', red: '#FF5A5F', blue: '#3A9BDC', line: '#262B33'};
+async function scFonts(){ try { await Promise.all([document.fonts.load('900 80px "Saira Condensed"'), document.fonts.load('700 40px "Geist"'), document.fonts.load('500 40px "Geist"')]); } catch (e){} }
+function scImg(src){ return new Promise(res => { if (!src) return res(null); const im = new Image(); im.crossOrigin = 'anonymous'; im.onload = () => res(im); im.onerror = () => res(null); im.src = src; setTimeout(() => res(null), 2500); }); }
+function scWrap(ctx, text, x, y, maxW, lh, maxLines){
+  const words = String(text).split(/\s+/); let line = '', n = 0;
+  for (let i = 0; i < words.length; i++){
+    const t = line ? line + ' ' + words[i] : words[i];
+    if (ctx.measureText(t).width > maxW && line){ ctx.fillText(n === maxLines - 1 ? line + '…' : line, x, y); y += lh; n++; line = words[i]; if (n >= maxLines) return y; }
+    else line = t;
+  }
+  if (line && n < maxLines){ ctx.fillText(line, x, y); y += lh; }
+  return y;
+}
+async function scBadge(ctx, team, x, y, r){
+  const col = hexCol(team.color, '#3A4652');
+  ctx.save(); ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fillStyle = col; ctx.fill(); ctx.restore();
+  const im = await scImg(team.logo);
+  let ok = false;
+  if (im){ try { ctx.save(); ctx.beginPath(); ctx.arc(x, y, r - 6, 0, Math.PI * 2); ctx.fillStyle = '#fff'; ctx.fill(); ctx.drawImage(im, x - r * 0.72, y - r * 0.72, r * 1.44, r * 1.44); ctx.restore(); ctx.getImageData(0, 0, 1, 1); ok = true; } catch (e){ ok = false; } }
+  if (!ok){ ctx.save(); ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fillStyle = col; ctx.fill(); ctx.fillStyle = inkOn(col); ctx.font = `900 ${Math.round(r * 0.62)}px "Saira Condensed"`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(team.abbr || '', x, y + 2); ctx.restore(); }
+  return ok;
+}
+function scFrame(ctx, kicker){
+  ctx.fillStyle = SC.bg; ctx.fillRect(0, 0, SC.W, SC.H);
+  ctx.fillStyle = SC.card; scRound(ctx, 50, 50, SC.W - 100, SC.H - 100, 44); ctx.fill();
+  ctx.fillStyle = SC.blue; ctx.font = '900 46px "Saira Condensed"'; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; ctx.fillText('SPORTSMF', 110, 150);
+  ctx.fillStyle = SC.muted; ctx.font = '800 34px "Saira Condensed"'; ctx.textAlign = 'right'; ctx.fillText(String(kicker || '').toUpperCase(), SC.W - 110, 150); ctx.textAlign = 'left';
+  ctx.fillStyle = SC.line; ctx.fillRect(110, 180, SC.W - 220, 3);
+}
+function scRound(ctx, x, y, w, hh, r){ ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + hh, r); ctx.arcTo(x + w, y + hh, x, y + hh, r); ctx.arcTo(x, y + hh, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
+function scFoot(ctx, txt){ ctx.fillStyle = SC.muted; ctx.font = '500 30px "Geist"'; ctx.textAlign = 'left'; ctx.fillText(txt, 110, SC.H - 100); }
+async function scShare(canvas, name, title){
+  const blob = await new Promise(r => canvas.toBlob(r, 'image/png'));
+  if (!blob) return;
+  const file = new File([blob], name, {type: 'image/png'});
+  try { if (navigator.canShare && navigator.canShare({files: [file]})){ await navigator.share({files: [file], title}); return; } } catch (e){ if (e && e.name === 'AbortError') return; }
+  const url = URL.createObjectURL(blob);
+  openSheet(`<div class="lbl">Share card</div><img src="${url}" alt="${esc(title)}" style="width:100%;border-radius:14px;margin:8px 0"><p class="sub">Press and hold the image to save or share it.</p><button class="ghost" id="closeSheetBtn">Close</button>`);
+  $('#closeSheetBtn').onclick = closeSheet;
+}
+function scCanvas(){ const c = document.createElement('canvas'); c.width = SC.W; c.height = SC.H; return c; }
+async function sharePickCard(ev, P, story){
+  await scFonts(); const c = scCanvas(), x = c.getContext('2d');
+  scFrame(x, 'Our pick · ' + new Date(ev.date).toLocaleDateString([], {month: 'short', day: 'numeric'}));
+  const conf = Math.round(Math.max(P.wp, 1 - P.wp) * 100), favH = P.wp >= 0.5;
+  const rowT = async (t, pts, mk, y, win) => {
+    await scBadge(x, t, 190, y, 62);
+    x.fillStyle = SC.ink; x.font = '700 56px "Geist"'; x.textAlign = 'left'; x.fillText((t.short || t.name || '').slice(0, 16), 280, y + 20);
+    x.font = '900 120px "Saira Condensed"'; x.textAlign = 'right'; x.fillStyle = win ? SC.ink : SC.muted; x.fillText(pts === null ? '—' : String(pts), SC.W - 230, y + 42);
+    if (mk !== null){ x.font = '700 40px "Saira Condensed"'; x.fillStyle = SC.muted; x.fillText(mk.toFixed(1), SC.W - 110, y + 38); }
+    if (win){ x.font = '700 56px "Geist"'; const nw = x.measureText((t.short || t.name || '').slice(0, 16)).width; x.font = '44px system-ui'; x.textAlign = 'left'; x.fillText('🏆', 280 + nw + 16, y + 18); }
+  };
+  x.fillStyle = SC.muted; x.font = '800 30px "Saira Condensed"'; x.textAlign = 'right'; x.fillText('OURS', SC.W - 230, 250); if (P.mh !== null) x.fillText('MKT', SC.W - 110, 250);
+  await rowT(ev.away, P.ap, P.mh !== null ? P.ma : null, 340, !favH);
+  await rowT(ev.home, P.hp, P.mh !== null ? P.mh : null, 500, favH);
+  x.fillStyle = conf >= 60 ? SC.green : SC.ink; x.font = '900 72px "Saira Condensed"'; x.textAlign = 'left'; x.fillText(`${conf}% CONFIDENCE`, 110, 680);
+  x.fillStyle = SC.ink; x.font = '600 40px "Geist"';
+  const edge = P.edge !== null && Math.abs(P.edge) >= 0.05 ? `Our line ${sprText(ev, P.M)} · market ${sprText(ev, P.mktM)} · edge ${Math.abs(P.edge).toFixed(1)} ${(P.edge > 0 ? ev.home : ev.away).abbr}` : `Our line ${sprText(ev, P.M)}`;
+  let y = scWrap(x, edge, 110, 760, SC.W - 220, 52, 2);
+  if (P.tot !== null) { x.fillStyle = SC.muted; y = scWrap(x, `Projected total ${(Math.round(P.tot * 10) / 10)}${P.mktT !== null ? ' vs ' + P.mktT : ''}`, 110, y + 6, SC.W - 220, 52, 1); }
+  x.fillStyle = SC.ink; x.font = '500 38px "Geist"';
+  y += 24; story.slice(0, 3).forEach(t => { if (y < SC.H - 200) y = scWrap(x, t, 110, y, SC.W - 220, 50, 3) + 12; });
+  scFoot(x, 'From my own power ratings. Not betting advice.');
+  await scShare(c, `pick-${ev.away.abbr}-${ev.home.abbr}.png`, `${ev.away.abbr} @ ${ev.home.abbr}`);
+}
+async function shareBetCard(b, ev){
+  await scFonts(); const c = scCanvas(), x = c.getContext('2d');
+  const st = b.status !== 'open' ? b.status : null;
+  scFrame(x, st ? (st === 'won' ? 'Cashed' : st === 'lost' ? 'Lost' : 'Push') : 'Live bet');
+  if (ev){
+    await scBadge(x, ev.away, 200, 330, 70); await scBadge(x, ev.home, SC.W - 200, 330, 70);
+    x.fillStyle = SC.ink; x.font = '900 130px "Saira Condensed"'; x.textAlign = 'center'; x.fillText(`${ev.away.score || 0}–${ev.home.score || 0}`, SC.W / 2, 375);
+    x.fillStyle = SC.muted; x.font = '700 36px "Saira Condensed"'; x.fillText(String(ev.state === 'post' ? (ev.detail || 'FINAL') : ev.detail || '').toUpperCase(), SC.W / 2, 450);
+  }
+  x.textAlign = 'left'; x.fillStyle = SC.ink; x.font = '900 92px "Saira Condensed"';
+  let y = scWrap(x, b.pick, 110, ev ? 600 : 360, SC.W - 220, 96, 3);
+  x.fillStyle = SC.muted; x.font = '700 44px "Geist"'; x.fillText(`${b.odds !== null && b.odds !== undefined ? fmtOdds(b.odds) + ' · ' : ''}${b.units}u${b.book && !b.cs ? ' · ' + b.book : ''}`, 110, y + 20);
+  if (st){
+    const col = st === 'won' ? SC.green : st === 'lost' ? SC.red : SC.muted;
+    x.fillStyle = col; scRound(x, 110, y + 80, SC.W - 220, 170, 30); x.fill();
+    x.fillStyle = st === 'won' ? '#0D0F12' : '#fff'; x.font = '900 110px "Saira Condensed"'; x.textAlign = 'center'; x.fillText(`${st.toUpperCase()} ${st !== 'push' ? fmtU(profit(b)) : ''}`, SC.W / 2, y + 205);
+  } else if (ev){
+    const p = cashChance(b, ev, ev._s);
+    if (p !== null){ x.fillStyle = p >= 0.6 ? SC.green : p <= 0.4 ? SC.red : '#E0A100'; x.font = '900 110px "Saira Condensed"'; x.fillText(`${Math.round(p * 100)}% TO CASH`, 110, y + 170); }
+  }
+  const c2 = clvFor(b); if (c2){ x.textAlign = 'left'; x.fillStyle = c2.v > 0 ? SC.green : SC.muted; x.font = '800 44px "Saira Condensed"'; x.fillText(`CLOSING LINE VALUE ${c2.v > 0 ? '+' : ''}${c2.v}${c2.unit === '%' ? '%' : ' PTS'}`, 110, SC.H - 170); }
+  scFoot(x, DEMO ? 'Demo bet, made up by the model.' : 'Tracked on SportsMF');
+  await scShare(c, 'bet.png', b.pick);
+}
+async function shareResults(span, R){
+  await scFonts(); const c = scCanvas(), x = c.getContext('2d');
+  scFrame(x, span === 'season' ? 'Season results' : span === '30' ? 'Last 30 days' : 'Last 7 days');
+  x.fillStyle = SC.ink; x.font = '900 190px "Saira Condensed"'; x.textAlign = 'left'; x.fillText(`${R.w}-${R.l}${R.p ? '-' + R.p : ''}`, 110, 410);
+  x.fillStyle = R.u >= 0 ? SC.green : SC.red; x.font = '900 120px "Saira Condensed"'; x.fillText(fmtU(R.u), 110, 560);
+  x.fillStyle = SC.muted; x.font = '700 48px "Geist"'; x.fillText(`ROI ${R.risk ? (R.u >= 0 ? '+' : '') + Math.round(R.u / R.risk * 100) + '%' : '—'}${R.cl ? ` · beat the close ${Math.round(R.cl.beat / R.cl.n * 100)}%` : ''}`, 110, 640);
+  /* profit line */
+  const pts = R.settled.map(b => ({t: (betWhen(b) || new Date()).getTime(), u: profit(b)})).sort((a, b) => a.t - b.t);
+  if (pts.length >= 2){
+    let cu = 0; const ser = pts.map(p2 => (cu += p2.u));
+    const lo = Math.min(0, ...ser), hi = Math.max(0, ...ser), sp = (hi - lo) || 1, X0 = 110, X1 = SC.W - 110, Y0 = 700, Y1 = 960;
+    const Y = v => Y0 + (Y1 - Y0) * (1 - (v - lo) / sp);
+    x.strokeStyle = SC.line; x.lineWidth = 3; x.setLineDash([10, 10]); x.beginPath(); x.moveTo(X0, Y(0)); x.lineTo(X1, Y(0)); x.stroke(); x.setLineDash([]);
+    x.strokeStyle = R.u >= 0 ? SC.green : SC.red; x.lineWidth = 7; x.lineJoin = 'round'; x.beginPath();
+    ser.forEach((v, i) => { const px = X0 + (X1 - X0) * i / (ser.length - 1); i ? x.lineTo(px, Y(v)) : x.moveTo(px, Y(v)); }); x.stroke();
+  }
+  x.font = '600 38px "Geist"'; let y = 1040;
+  (R.ins || []).slice(0, 3).forEach(t => { x.fillStyle = t.cls === 'up' ? SC.green : SC.red; y = scWrap(x, t.text, 110, y, SC.W - 220, 48, 1) + 6; });
+  scFoot(x, DEMO ? 'Demo record from the model.' : 'Tracked on SportsMF');
+  await scShare(c, 'results.png', 'My results');
 }
 
 /* ================= PLAYER PAGES =================
@@ -3724,7 +4230,7 @@ function stat(e, name, num){
 
 /* ---------- BETS ---------- */
 VIEWS.bets = {
-  async load(){
+  async load(p){
     if (DEMO) await demoGenerate().catch(() => {});
     await gradeAll().catch(() => {});
     await loadPlayerGames();
@@ -3741,9 +4247,16 @@ VIEWS.bets = {
     await Promise.allSettled([...keys].map(async k => { const [lk, dd] = k.split('|'); evs.push(...(await boardAll(LG[lk], dd)).map(e => norm(e, lk))); }));
     await attachBoxes(evs);
     demoGradeProps(evs);
-    return {evs};
+    rememberEvs(evs); recordOwnClv(evs);
+    await loadClvFiles().catch(() => {});
+    const out = {evs};
+    if (p && p.seg === 'model'){ try { out.score = await loadScoreFiles(); } catch (e){} }
+    return out;
   },
   build(p, d, avail){
+    const seg = ['results', 'model'].includes(p.seg) ? p.seg : 'bets';
+    const segBar = `<div class="seg" style="margin-top:6px">${[['bets', 'BETS'], ['results', 'RESULTS'], ['model', 'MODEL']].map(([k, l]) => `<button class="${seg === k ? 'on' : ''}" data-h="${h(() => setP({seg: k, page: 0}))}">${l}</button>`).join('')}</div>`;
+    if (seg !== 'bets') return `<div class="row" style="margin-top:6px"><h1 class="title">MY BETS</h1><button class="chip" data-h="${h(() => go('settings'))}">1u = ${money(S.unit)} ›</button></div>${segBar}<div style="display:flex;flex-direction:column;gap:14px;margin-top:12px">${seg === 'results' ? resultsView(p) : modelView(d && d.score)}</div>`;
     const f = p.filter || 'open';
     const all = S.bets.concat(csBets());
     const open = all.filter(b => b.status === 'open').sort((a, b) => new Date(a.date || 0) - new Date(b.date || 0));
@@ -3769,10 +4282,10 @@ VIEWS.bets = {
       else if (b.type === 'future') right = `<span class="tag my">${b.settleOn ? esc(shortDate(b.date)) : 'FUTURE'}</span>`;
       else right = `<span class="tag my">${esc(shortDate(b.date) || 'OPEN')}</span>`;
       const typeLbl = b.type === 'ml' ? 'Moneyline' : b.type === 'future' ? 'Future' : b.type;
-      return `<button class="lrow" data-h="${h(() => b.cs ? csSheet(b) : betSheet(b))}"><span class="main"><span class="lbl">${b.cs ? 'CALL SHEET · ' : ''}${esc(LG[b.lg] ? LG[b.lg].short : '')} · ${esc(typeLbl)}${b.event ? ' · ' + esc(b.event) : ''}</span><span class="big">${esc(b.pick)}</span><span class="sub">${fmtOdds(b.odds)} · ${esc(b.book)} · ${b.units}u</span></span>${right}</button>`;
+      return `<button class="lrow" data-h="${h(() => b.cs ? csSheet(b) : betSheet(b))}"><span class="main"><span class="lbl">${b.cs ? 'CALL SHEET · ' : ''}${esc(LG[b.lg] ? LG[b.lg].short : '')} · ${esc(typeLbl)}${b.event ? ' · ' + esc(b.event) : ''}</span><span class="big">${esc(b.pick)}</span><span class="sub">${fmtOdds(b.odds)} · ${esc(b.book)} · ${b.units}u ${b.status !== 'open' ? clvTag(clvFor(b)) : ''}</span></span>${right}</button>`;
     };
     const chip = (lbl, k) => `<button class="chip ${f === k ? 'on' : ''}" data-h="${h(() => setP({filter: k, page: 0}))}">${lbl}</button>`;
-    return `<div class="row" style="margin-top:6px"><h1 class="title">MY BETS</h1><button class="chip" data-h="${h(() => go('settings'))}">1u = ${money(S.unit)} ›</button></div>
+    return `<div class="row" style="margin-top:6px"><h1 class="title">MY BETS</h1><button class="chip" data-h="${h(() => go('settings'))}">1u = ${money(S.unit)} ›</button></div>${segBar}
       <div class="${wkStats || DEMO ? 'tiles3' : 'grid2'}" style="margin-top:12px">
         <div class="stat"><span class="lbl">Open</span><b>${open.length}</b></div>
         <div class="stat"><span class="lbl">Today</span><b class="${cls(td)}">${fmtU(td)}</b></div>
