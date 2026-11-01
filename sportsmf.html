@@ -488,7 +488,7 @@ const TEAM_LGS = LEAGUES.filter(l => l.type === 'team');
 const COLLEGE_LGS = LEAGUES.filter(l => l.college);
 const BOOKS = ['DraftKings','FanDuel','Bet365','BetMGM','Fanatics','Hard Rock','theScore','BetRivers','betPARX','Caesars','ESPN BET'];
 const BOOK_MAP = {draftkings:'DraftKings', fanduel:'FanDuel', betmgm:'BetMGM', caesars:'Caesars', espnbet:'ESPN BET', bet365:'Bet365', fanatics:'Fanatics', hardrock:'Hard Rock', hardrockbet:'Hard Rock', betrivers:'BetRivers', thescore:'theScore', betparx:'betPARX'};
-const BUILD = '2026-10-27 v45';
+const BUILD = '2026-11-01 v46';
 /* The Call Sheet lives on the same site (jibboo72.github.io), so its saved
    data and its published odds file are both readable from here. */
 const CS_KEY = 'nfl-call-sheet-v3';
@@ -3192,58 +3192,81 @@ function fracLeft(ev){
   return 0.5;
 }
 function poisTail(lam, k){ if (k <= 0) return 1; let p = Math.exp(-lam), c = p; for (let i = 1; i < k; i++){ p *= lam / i; c += p; } return Math.max(0, 1 - c); }
-/* chance this bet cashes, 0–1, or null if it can't be read */
+/* chance this bet cashes, 0–1, or null if it can't be read.
+   Exactly 0 or 1 only when the bet is decided: the game is final, a prop
+   over has already hit (or an under already busted), or a game total is
+   already past its number. Anything still live stays between 1% and 99%.
+   Time matters: the live read (score plus what's left) is blended with the
+   pregame read by how much of the game has been played, weighted toward
+   the end. At halftime the live read counts about a third; with five
+   minutes left about 90%. Early leads move the number, but not much. */
+const SWEAT_LIVE = 0.01, SWEAT_TAIL = 1.15;
+function liveWeight(f){ const e = Math.max(0, Math.min(1, 1 - f)); return Math.pow(e, 1.6); }
+function blendLive(pLive, pPre, f){
+  const w = liveWeight(f), p = w * pLive + (1 - w) * pPre;
+  return Math.max(SWEAT_LIVE, Math.min(1 - SWEAT_LIVE, p));
+}
 function cashChance(b, ev, s){
   if (!ev || ev.state === 'pre') return null;
   const hs = parseFloat(ev.home.score), as = parseFloat(ev.away.score);
+  const fin = ev.state === 'post';
   const f = fracLeft(ev);
   const r = betRead(b, ev);
   if (r){
     if (isNaN(hs) || isNaN(as)) return null;
     const sd = SWEAT_SD[ev.lg] || [12, 14];
     const hl = parseSpread(ev), ou = ev.odds.ou !== undefined && ev.odds.ou !== null && ev.odds.ou !== '' ? +ev.odds.ou : null;
-    const muM = (hl !== null ? -hl : 0) * f, sM = Math.max(0.001, sd[0] * Math.sqrt(f));
+    const mktM = hl !== null ? -hl : 0;
     if (r.type === 'spread' || r.type === 'ml'){
       const line = r.type === 'ml' ? 0 : +r.line;
-      const cur = r.side === 'home' ? hs - as : as - hs, mu = r.side === 'home' ? muM : -muM;
-      if (f === 0) return cur + line > 0 ? 1 : cur + line < 0 ? 0 : 0.5;
-      return 1 - phi((-line - cur - mu) / sM);
+      const cur = r.side === 'home' ? hs - as : as - hs, mkt = r.side === 'home' ? mktM : -mktM;
+      if (fin) return cur + line > 0 ? 1 : cur + line < 0 ? 0 : 0.5;
+      const pPre = r.type === 'ml' && implied(b.odds) !== null ? implied(b.odds) : 1 - phi((-line - mkt) / sd[0]);
+      const sM = Math.max(0.5, sd[0] * SWEAT_TAIL * Math.sqrt(f));
+      const pLive = 1 - phi((-line - cur - mkt * f) / sM);
+      return blendLive(pLive, pPre, f);
     }
-    if (r.type === 'total'){
-      const cur = hs + as, mu = (ou !== null ? ou : r.line) * f, sT = Math.max(0.001, sd[1] * Math.sqrt(f));
-      if (f === 0) return cur === r.line ? 0.5 : ((cur > r.line) === (r.side === 'over') ? 1 : 0);
-      const pOver = 1 - phi((r.line - cur - mu) / sT);
-      return r.side === 'over' ? pOver : 1 - pOver;
-    }
-    if (r.type === 'tt'){
-      const cur = r.team === 'home' ? hs : as;
-      const tm = ou !== null ? (ou / 2 + (r.team === 'home' ? -1 : 1) * (hl !== null ? hl : 0) / 2) : r.line;
-      const mu = tm * f, sT = Math.max(0.001, sd[1] * 0.7 * Math.sqrt(f));
-      if (f === 0) return cur === r.line ? 0.5 : ((cur > r.line) === (r.side === 'over') ? 1 : 0);
-      const pOver = 1 - phi((r.line - cur - mu) / sT);
-      return r.side === 'over' ? pOver : 1 - pOver;
+    if (r.type === 'total' || r.type === 'tt'){
+      const cur = r.type === 'tt' ? (r.team === 'home' ? hs : as) : hs + as;
+      const full = r.type === 'tt' ? (ou !== null ? ou / 2 + (r.team === 'home' ? 1 : -1) * mktM / 2 : +r.line) : (ou !== null ? ou : +r.line);
+      const sdT = sd[1] * (r.type === 'tt' ? 0.7 : 1);
+      const over = r.side === 'over';
+      if (cur > r.line) return over ? 1 : 0;          /* already past the number: decided */
+      if (fin) return cur === +r.line ? 0.5 : (over ? 0 : 1);
+      const pOverPre = 1 - phi((r.line - full) / sdT);
+      const pOverLive = 1 - phi((r.line - cur - full * f) / Math.max(0.5, sdT * SWEAT_TAIL * Math.sqrt(f)));
+      const pOver = blendLive(pOverLive, pOverPre, f);
+      return over ? pOver : Math.max(SWEAT_LIVE, Math.min(1 - SWEAT_LIVE, 1 - pOver));
     }
     return null;
   }
   const pr = propRead(b, ev, s);
   if (!pr) return null;
-  if (pr.cls === 'up' && (ev.state === 'post' || (pr.side || 'over') === 'over')) return 1;
-  if (pr.cls === 'down') return ev.state === 'post' || pr.side === 'under' ? 0 : null;
-  if (ev.state === 'post') return pr.cls === 'up' ? 1 : 0;
+  const side = pr.side || 'over';
+  /* decided props */
+  if (pr.cls === 'up' && (fin || side === 'over')) return 1;
+  if (pr.cls === 'down' && (fin || side === 'under')) return 0;
+  if (fin) return pr.cls === 'up' ? 1 : 0;
+  const pPre = implied(b.odds) !== null ? implied(b.odds) : 0.5;
   if (pr.val === undefined || pr.line === null || pr.line === undefined){
-    /* anytime TD with no touchdown yet: the pregame price says how likely, scaled to time left */
-    const p0 = implied(b.odds);
-    if (p0 === null || !/td|touchdown|anytime|goal/i.test(b.pick)) return null;
-    return 1 - Math.exp(Math.log(1 - Math.min(0.97, p0)) * f);
+    /* anytime TD / goal with nothing yet: the pregame price, scaled to the time left */
+    if (!/td|touchdown|anytime|goal/i.test(b.pick)) return null;
+    const p0 = Math.min(0.97, pPre);
+    return Math.max(SWEAT_LIVE, Math.min(1 - SWEAT_LIVE, 1 - Math.exp(Math.log(1 - p0) * f)));
   }
   const st2 = String(pr.stat || '');
   const counts = ['rec', 'SOG', 'G', 'A', 'reb', 'ast', '3PM', 'stl', 'blk', 'hits', 'blocks', 'pass TD'].includes(st2) || (st2 === 'pts' && /hockey/.test(ev.path));
   const line = +pr.line, val = +pr.val;
-  let pOver;
-  if (counts){ const need = Math.floor(line) + 1 - val; pOver = need <= 0 ? 1 : poisTail(Math.max(0.01, line * f), need); }
-  else { const mu = line * f, sd2 = Math.max(0.5, 0.38 * line * Math.sqrt(f)); pOver = 1 - phi((line - val - mu) / sd2); }
-  return (pr.side || 'over') === 'over' ? pOver : 1 - pOver;
+  let pOverLive;
+  if (counts){ const need = Math.floor(line) + 1 - val; pOverLive = need <= 0 ? 1 : poisTail(Math.max(0.01, line * f), need); }
+  else { const mu = line * f, sd2 = Math.max(0.5, 0.38 * SWEAT_TAIL * line * Math.sqrt(f)); pOverLive = 1 - phi((line - val - mu) / sd2); }
+  const pOverPre = side === 'over' ? pPre : 1 - pPre;
+  const pOver = blendLive(pOverLive, pOverPre, f);
+  return side === 'over' ? pOver : Math.max(SWEAT_LIVE, Math.min(1 - SWEAT_LIVE, 1 - pOver));
 }
+/* shown as whole percent, always rounded down: 100 only when it's already won */
+const cashPct = p => p === null ? null : p >= 1 ? 100 : p <= 0 ? 0 : Math.max(1, Math.min(99, Math.floor(p * 100)));
+const floorU = x => Math.floor(x * 100) / 100;
 function betRisk(b){ return +b.units || 0; }
 function betWin(b){ if (b.cs){ const o = +b.odds; return !o ? b.units : o > 0 ? b.units * o / 100 : b.units * 100 / Math.abs(o); } return winUnits(b); }
 function sweatView(d){
@@ -3263,14 +3286,14 @@ function sweatView(d){
   const ev0 = live.filter(x => x.p !== null).reduce((a, x) => a + x.p * betWin(x.b) - (1 - x.p) * betRisk(x.b), 0);
   const risk = live.reduce((a, x) => a + betRisk(x.b), 0);
   const row = x => {
-    const st = betState(x.b, x.ev, x.ev._s), pc = x.p === null ? null : Math.round(x.p * 100);
+    const st = betState(x.b, x.ev, x.ev._s), pc = cashPct(x.p);
     const col = pc === null ? 'var(--muted)' : pc >= 60 ? 'var(--green-t)' : pc <= 40 ? 'var(--red)' : '#E0A100';
     return `<button class="sweat" data-h="${h(() => go('game', {lg: x.ev.lg, path: x.ev.path, id: x.ev.id}))}">
       <div class="sw1"><span class="mt">${esc(x.ev.away.abbr)} ${esc(x.ev.away.score)} · ${esc(x.ev.home.abbr)} ${esc(x.ev.home.score)} <small>${x.ev.state === 'in' ? liveDot : ''}${esc(x.ev.detail)}</small></span><span class="pc" style="color:${col}">${pc === null ? '—' : pc + '%'}</span></div>
       <div class="sw2"><b>${esc(x.b.pick)}${x.b.odds !== null && x.b.odds !== undefined ? ' ' + esc(fmtOdds(x.b.odds)) : ''}</b><span>${esc(st.text)}</span></div>
       ${pc === null ? '' : `<div class="track"><i style="width:${Math.max(2, pc)}%;background:${col}"></i></div>`}</button>`;
   };
-  return `<div class="swsum"><div><span class="lbl">Live bets</span><b>${live.length}</b></div><div><span class="lbl">At risk</span><b>${(Math.round(risk * 100) / 100)}u</b></div><div><span class="lbl">Projected</span><b class="${ev0 > 0 ? 'pos' : ev0 < 0 ? 'neg' : ''}">${fmtU(ev0)}</b></div></div>
+  return `<div class="swsum"><div><span class="lbl">Live bets</span><b>${live.length}</b></div><div><span class="lbl">At risk</span><b>${floorU(risk)}u</b></div><div><span class="lbl">Projected</span><b class="${ev0 > 0 ? 'pos' : ev0 < 0 ? 'neg' : ''}">${fmtU(floorU(ev0))}</b></div></div>
     ${live.length ? `<div class="lbl" style="margin:12px 0 6px">Sweatiest first</div>${live.map(row).join('')}` : ''}
     ${done.length ? `<div class="lbl" style="margin:14px 0 6px">Decided or final</div>${done.map(row).join('')}` : ''}
     <div class="sub" style="margin-top:8px">Chance to cash uses the score, the time left and the pregame line and total. Player props use their pace and the prop number.</div>`;
@@ -3362,7 +3385,7 @@ async function shareBetCard(b, ev){
     x.fillStyle = st === 'won' ? '#0D0F12' : '#fff'; x.font = '900 110px "Saira Condensed"'; x.textAlign = 'center'; x.fillText(`${st.toUpperCase()} ${st !== 'push' ? fmtU(profit(b)) : ''}`, SC.W / 2, y + 205);
   } else if (ev){
     const p = cashChance(b, ev, ev._s);
-    if (p !== null){ x.fillStyle = p >= 0.6 ? SC.green : p <= 0.4 ? SC.red : '#E0A100'; x.font = '900 110px "Saira Condensed"'; x.fillText(`${Math.round(p * 100)}% TO CASH`, 110, y + 170); }
+    if (p !== null){ x.fillStyle = p >= 0.6 ? SC.green : p <= 0.4 ? SC.red : '#E0A100'; x.font = '900 110px "Saira Condensed"'; x.fillText(`${cashPct(p)}% TO CASH`, 110, y + 170); }
   }
   const c2 = clvFor(b); if (c2){ x.textAlign = 'left'; x.fillStyle = c2.v > 0 ? SC.green : SC.muted; x.font = '800 44px "Saira Condensed"'; x.fillText(`CLOSING LINE VALUE ${c2.v > 0 ? '+' : ''}${c2.v}${c2.unit === '%' ? '%' : ' PTS'}`, 110, SC.H - 170); }
   scFoot(x, DEMO ? 'Demo bet, made up by the model.' : 'Tracked on SportsMF');
