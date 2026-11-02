@@ -488,7 +488,7 @@ const TEAM_LGS = LEAGUES.filter(l => l.type === 'team');
 const COLLEGE_LGS = LEAGUES.filter(l => l.college);
 const BOOKS = ['DraftKings','FanDuel','Bet365','BetMGM','Fanatics','Hard Rock','theScore','BetRivers','betPARX','Caesars','ESPN BET'];
 const BOOK_MAP = {draftkings:'DraftKings', fanduel:'FanDuel', betmgm:'BetMGM', caesars:'Caesars', espnbet:'ESPN BET', bet365:'Bet365', fanatics:'Fanatics', hardrock:'Hard Rock', hardrockbet:'Hard Rock', betrivers:'BetRivers', thescore:'theScore', betparx:'betPARX'};
-const BUILD = '2026-11-01 v46';
+const BUILD = '2026-11-02 v47';
 /* The Call Sheet lives on the same site (jibboo72.github.io), so its saved
    data and its published odds file are both readable from here. */
 const CS_KEY = 'nfl-call-sheet-v3';
@@ -852,7 +852,7 @@ function teamOf(c){
     logo: t.logo || (t.logos && t.logos[0] && t.logos[0].href) || '',
     score: scoreVal(c && c.score), rank: rank && rank < 99 ? rank : null,
     record: (c && ((c.records && c.records[0] && c.records[0].summary) || (c.record && c.record[0] && (c.record[0].summary || c.record[0].displayValue)))) || '',
-    winner: !!(c && c.winner),
+    winner: !!(c && c.winner), conf: t.conferenceId || '',
     color: t.color || '', alt: t.alternateColor || ''
   };
 }
@@ -4094,10 +4094,78 @@ VIEWS.sports = {
   }
 };
 
+/* ================= COLLEGE BASKETBALL CONFERENCES =================
+   Every Division I conference comes from ESPN's standings feed (one call,
+   cached 30 minutes): its name and the teams in it. Scores filter on those
+   teams, with each team's conference id on the scoreboard as a backup, and
+   the same data drives conference standings. */
+const CBB_POWER = [/big ten/i, /southeastern|^sec$/i, /atlantic coast|^acc$/i, /big 12/i, /big east/i];
+async function cbbConfs(){
+  const l = LG.cbb; let d = null;
+  for (const q of ['?group=50', '']){ try { d = await getJSON(`${STAND}${l.path}/standings${q}`, 30 * 60000); if (d) break; } catch (e){} }
+  if (!d) return [];
+  const out = [];
+  (function walk(n){
+    if (!n) return;
+    const ents = (n.standings && n.standings.entries) || [];
+    if (ents.length) out.push({id: String(n.id || n.uid || n.name), name: n.name || n.abbreviation || '', short: confShort(n), ids: new Set(ents.map(e => String((e.team || {}).id))), entries: ents});
+    (n.children || []).forEach(walk);
+  })(d);
+  const rank = c => { const i = CBB_POWER.findIndex(re => re.test(c.name) || re.test(c.short)); return i < 0 ? 99 : i; };
+  return out.sort((a, b) => rank(a) - rank(b) || a.short.localeCompare(b.short));
+}
+function confShort(n){
+  const nm = String(n.name || '');
+  const ab = String(n.abbreviation || '');
+  const map = [[/southeastern/i, 'SEC'], [/atlantic coast/i, 'ACC'], [/atlantic 10/i, 'A-10'], [/american athletic/i, 'American'], [/mountain west/i, 'MWC'], [/west coast/i, 'WCC'], [/missouri valley/i, 'MVC'], [/mid-american/i, 'MAC'], [/conference usa/i, 'C-USA'], [/coastal athletic|colonial/i, 'CAA'], [/metro atlantic/i, 'MAAC'], [/mid-eastern/i, 'MEAC'], [/southwestern athletic/i, 'SWAC'], [/ohio valley/i, 'OVC'], [/atlantic sun|^asun/i, 'ASUN'], [/northeast/i, 'NEC'], [/western athletic/i, 'WAC']];
+  const hit = map.find(([re]) => re.test(nm));
+  if (hit) return hit[1];
+  if (ab && ab.length <= 8 && !/^d1|^ncaa/i.test(ab)) return ab;
+  return nm.replace(/\s+(conference|league)$/i, '').replace(/^the\s+/i, '');
+}
+function cbbDefaultConf(confs){
+  const mine = confs.find(c => c.entries.some(e => favOf((e.team || {}).displayName, 'cbb')));
+  return mine ? mine.id : (confs[0] ? confs[0].id : 'all');
+}
+function cbbFilter(evs, confs, key){
+  if (!key || key === 'all') return evs;
+  if (key === 'top25') return evs.filter(e => e.home.rank || e.away.rank);
+  const c = confs.find(x => x.id === key);
+  if (!c) return evs;
+  return evs.filter(e => [e.home, e.away].some(t => c.ids.has(String(t.id)) || (t.conf && String(t.conf) === c.id)));
+}
+function cbbChips(confs, key, onPick, withAll){
+  const chip = (k, lbl) => `<button class="chip ${key === k ? 'on' : ''}" data-h="${h(() => onPick(k))}">${esc(lbl)}</button>`;
+  return `<div class="chips sm scrollx" style="margin-top:10px">${withAll ? chip('all', 'All') + chip('top25', 'Top 25') : ''}${confs.map(c => chip(c.id, c.short)).join('')}</div>`;
+}
+/* conference record "5-2" -> win pct */
+function confPct(e){ const r = stat(e, 'vs. Conf.') || stat(e, 'vsconf') || stat(e, 'vsConf'); const m = String(r).match(/(\d+)-(\d+)/); return m ? {txt: m[0], w: +m[1], l: +m[2], pct: (+m[1] + +m[2]) ? +m[1] / (+m[1] + +m[2]) : 0} : null; }
+function cbbStandings(confs, key){
+  const c = confs.find(x => x.id === key) || confs[0];
+  if (!c) return '<div class="empty">Conference standings aren\'t available right now.</div>';
+  const ents = c.entries.slice().sort((a, b) => {
+    const ca = confPct(a), cb = confPct(b);
+    return ((cb ? cb.pct : 0) - (ca ? ca.pct : 0)) || ((cb ? cb.w : 0) - (ca ? ca.w : 0)) || (stat(b, 'winPercent', true) - stat(a, 'winPercent', true));
+  });
+  const row = (e, i) => {
+    const t = e.team || {}, cp = confPct(e);
+    const ov = stat(e, 'overall') || [stat(e, 'wins'), stat(e, 'losses')].filter(x => x !== '').join('-');
+    const fav = favOf(t.displayName, 'cbb'), lg2 = t.logos && t.logos[0] && t.logos[0].href;
+    return `<button class="lb" data-h="${h(() => t.id && go('team', {lg: 'cbb', id: t.id, t: tsnap(t)}))}" style="grid-template-columns:30px 1fr 64px 64px"><span class="p">${i + 1}</span><span class="${fav ? 'fav' : ''}" style="display:flex;align-items:center;gap:8px;font:800 19px var(--disp);min-width:0">${lg2 ? `<img class="logoimg" style="width:22px;height:22px" src="${esc(lg2)}" alt="" loading="lazy">` : ''}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(t.shortDisplayName || t.displayName || '')}</span></span><span style="font:800 16px var(--body);text-align:right">${esc(cp ? cp.txt : '—')}</span><span class="sub" style="text-align:right">${esc(ov)}</span></button>`;
+  };
+  return `<div class="lbl ghdr">${esc(c.name)}</div><div class="lbl" style="display:grid;grid-template-columns:30px 1fr 64px 64px;gap:0;padding:0 2px;font-size:11px"><span></span><span></span><span style="text-align:right">CONF</span><span style="text-align:right">ALL</span></div><div>${ents.map(row).join('')}</div>`;
+}
+
 /* ---------- LEAGUE ---------- */
 VIEWS.league = {
   async load(p){
     const l = LG[p.lg];
+    if (l.key === 'cbb'){
+      const confs = await cbbConfs().catch(() => []);
+      const ck = p.cc || store.get('cbbConf', null) || (p.mode === 'standings' ? cbbDefaultConf(confs) : 'all');
+      if (p.mode === 'standings') return {confs, ck: ck === 'all' || ck === 'top25' ? cbbDefaultConf(confs) : ck};
+      if (p.mode !== 'rankings') return {confs, ck, evs: await board(l, p.date)};
+    }
     if (p.mode === 'standings'){
       let q = '';
       if (l.key === 'cfb') q = '?group=' + ((p.conf || 'fbs') === 'fcs' ? 81 : 80);
@@ -4129,10 +4197,18 @@ VIEWS.league = {
     const room = avail;
     if (l.key === 'cfb' && mode !== 'rankings') html += `<div class="chips sm scrollx" style="margin-top:10px">${CFB_CONF.map(c => `<button class="chip ${(p.conf || 'fbs') === c.k ? 'on' : ''}" data-h="${h(() => setP({conf: c.k}))}">${c.l}</button>`).join('')}</div>`;
     if (mode === 'standings' && !l.college) html += `<div class="chips sm" style="margin-top:10px">${[['div','Division'],['conf', l.key === 'nfl' ? 'Conference' : l.key === 'mlb' ? 'League' : 'Conference'],['league', 'Overall']].map(([k, t]) => `<button class="chip ${(p.level || 'div') === k ? 'on' : ''}" data-h="${h(() => setP({level: k}))}">${t}</button>`).join('')}</div>`;
+    if (l.key === 'cbb' && mode !== 'rankings'){
+      const pick = k => { store.set('cbbConf', k); setP({cc: k, page: 0}); };
+      const confs = d.confs || [];
+      html += cbbChips(confs, d.ck, pick, mode !== 'standings');
+      if (mode === 'standings') return html + `<div style="margin-top:8px">${cbbStandings(confs, d.ck)}</div>`;
+      if (!confs.length && d.ck !== 'all' && d.ck !== 'top25') html += '<div class="sub" style="margin-top:6px">Conference list unavailable right now; showing all games.</div>';
+    }
     if (mode === 'standings') return html + standingsBody(l, d.stand, p, room);
     if (mode === 'rankings') return html + rankingsBody(l, d.rank, p, room);
     if (l.type === 'team'){
-      const evs = d.evs.map(e => norm(e, l.key)).sort(sortEvents);
+      let evs = d.evs.map(e => norm(e, l.key)).sort(sortEvents);
+      if (l.key === 'cbb') evs = cbbFilter(evs, d.confs || [], d.ck);
       gradeEvents(evs);
       const per = perPage(room, 130, 79, 2);
       const pg = slicePage(evs, per, p.page);
