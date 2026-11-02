@@ -292,7 +292,7 @@ button.lb{width:100%;border-left:0;border-right:0;border-top:0;background:none;t
 .ph{display:inline-block;width:28px;height:28px;border-radius:50%;background:var(--soft);border:1px solid var(--line);flex:none}
 .tm .nm{flex:1;min-width:0;font:800 23px/1.15 var(--disp);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tm .nm{flex:1 1 auto}
-.tinfo{display:flex;flex-direction:column;align-items:flex-end;justify-content:center;min-width:0;max-width:52%;flex:0 1 auto;font:600 12px/1.25 var(--body);color:var(--muted);text-align:right}
+.tinfo{display:flex;flex-direction:column;align-items:flex-end;justify-content:center;gap:1px;min-width:0;max-width:56%;flex:0 1 auto;font:600 13px/1.25 var(--body);color:var(--muted);text-align:right}
 .tinfo span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .tinfo span:first-child{color:var(--ink);opacity:.85;font-weight:700;font-variant-numeric:tabular-nums}
 .rk{font:600 14px var(--body);color:var(--dim);margin-right:3px}
@@ -492,7 +492,7 @@ const TEAM_LGS = LEAGUES.filter(l => l.type === 'team');
 const COLLEGE_LGS = LEAGUES.filter(l => l.college);
 const BOOKS = ['DraftKings','FanDuel','Bet365','BetMGM','Fanatics','Hard Rock','theScore','BetRivers','betPARX','Caesars','ESPN BET'];
 const BOOK_MAP = {draftkings:'DraftKings', fanduel:'FanDuel', betmgm:'BetMGM', caesars:'Caesars', espnbet:'ESPN BET', bet365:'Bet365', fanatics:'Fanatics', hardrock:'Hard Rock', hardrockbet:'Hard Rock', betrivers:'BetRivers', thescore:'theScore', betparx:'betPARX'};
-const BUILD = '2026-11-02 v48';
+const BUILD = '2026-11-02 v49';
 /* The Call Sheet lives on the same site (jibboo72.github.io), so its saved
    data and its published odds file are both readable from here. */
 const CS_KEY = 'nfl-call-sheet-v3';
@@ -4191,7 +4191,7 @@ async function standMap(lgKey){
       ents.slice().sort((a, b) => key(b) - key(a)).forEach((e, i) => {
         const t = e.team || {}; if (!t.id) return;
         const st = stat(e, 'streak');
-        m.set(String(t.id), {place: i + 1, grp, streak: /^[WLT]\d+$/i.test(st) ? st.toUpperCase() : (/^\d+$/.test(st) ? '' : st), conf: confPct(e)});
+        m.set(String(t.id), {place: i + 1, grp, streak: /^[WLT]\d+$/i.test(st) ? st.toUpperCase() : (/^\d+$/.test(st) ? '' : st), conf: confPct(e), pts: l.pts ? stat(e, 'points') : '', ovr: stat(e, 'overall')});
       });
     }
     (n.children || []).forEach(walk);
@@ -4205,30 +4205,45 @@ function shortGroup(n){
   return nm.replace(/\s+division$/i, '').replace(/^(American|National) Football Conference\s*/i, '');
 }
 const ORD = n => { const s = ['th', 'st', 'nd', 'rd'], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); };
+/* Plain words, so it reads at a glance:
+   pro    "6-1 · Won 4"          / "1st NFC North · 3-0 home"
+   hockey "8-3-1 · 17 pts"       / "2nd Atlantic · Won 2"
+   college"6-1 · Won 5"          / "1st Big Ten (2-0)"
+   live   "Qtrs 28 22 25 13"     / "C. Cunningham 31 PTS" */
+const streakTxt = s2 => { const m = String(s2 || '').match(/^([WLT])(\d+)$/i); return m ? `${{W: 'Won', L: 'Lost', T: 'Tied'}[m[1].toUpperCase()]} ${m[2]}` : ''; };
 function teamInfo(ev, t, side){
   const st = (STANDS[ev.lg] && STANDS[ev.lg].m && STANDS[ev.lg].m.get(String(t.id))) || null;
+  const hockey = /hockey/.test(ev.path || ''), col = LG[ev.lg] && LG[ev.lg].college;
   let l1 = [], l2 = [];
   if (ev.state === 'pre'){
-    if (t.record) l1.push(t.record);
-    if (st && st.streak) l1.push(st.streak);
-    const col = LG[ev.lg] && LG[ev.lg].college;
-    if (col){
-      const cr = (t.recs && t.recs.conf) || (st && st.conf && st.conf.txt);
-      if (st && st.grp) l2.push(`${ORD(st.place)} ${st.grp}${cr ? ' ' + cr : ''}`);
-      else if (cr) l2.push('Conf ' + cr);
-    } else {
+    const rec = hockey && st && st.ovr ? st.ovr : t.record;
+    if (rec) l1.push(rec);
+    if (hockey){
+      if (st && st.pts) l1.push(`${st.pts} pts`);
       if (st && st.grp) l2.push(`${ORD(st.place)} ${st.grp}`);
-      const hr = side === 'home' ? (t.recs && t.recs.home) : (t.recs && t.recs.road);
-      if (hr) l1.push(`${side === 'home' ? 'H' : 'A'} ${hr}`);
+      if (st && streakTxt(st.streak)) l2.push(streakTxt(st.streak));
+    } else {
+      if (st && streakTxt(st.streak)) l1.push(streakTxt(st.streak));
+      if (col){
+        const cr = (t.recs && t.recs.conf) || (st && st.conf && st.conf.txt);
+        if (st && st.grp) l2.push(`${ORD(st.place)} ${st.grp}${cr ? ` (${cr})` : ''}`);
+        else if (cr) l2.push(`${cr} in conference`);
+      } else {
+        if (st && st.grp) l2.push(`${ORD(st.place)} ${st.grp}`);
+        const hr = side === 'home' ? (t.recs && t.recs.home) : (t.recs && t.recs.road);
+        if (hr) l2.push(`${hr} ${side === 'home' ? 'home' : 'away'}`);
+      }
     }
   } else {
     const ls = (t.ls || []).filter(x => x !== null && x !== undefined && x !== '');
-    if (ls.length && ls.length <= 12) l1.push(ls.join(' '));
+    const lbl = ev.lg === 'cbb' ? 'Halves' : hockey ? 'Periods' : ev.lg === 'mlb' ? '' : 'Qtrs';
+    if (ls.length && lbl) l1.push(`${lbl} ${ls.join('  ')}`);
     if (t.ldr) l2.push(t.ldr);
     else if (t.record) l2.push(t.record);
+    if (!l1.length && l2.length) { l1 = l2; l2 = []; }
   }
   if (!l1.length && !l2.length) return '';
-  return `<span class="tinfo"><span>${esc(l1.join(' · '))}</span><span>${esc(l2.join(' · '))}</span></span>`;
+  return `<span class="tinfo"><span>${esc(l1.join(' · '))}</span>${l2.length ? `<span>${esc(l2.join(' · '))}</span>` : ''}</span>`;
 }
 function leaderText(cat){
   const L = cat && cat.leaders && cat.leaders[0];
