@@ -291,6 +291,10 @@ button.lb{width:100%;border-left:0;border-right:0;border-top:0;background:none;t
 .logoimg{width:28px;height:28px;object-fit:contain;flex:none}
 .ph{display:inline-block;width:28px;height:28px;border-radius:50%;background:var(--soft);border:1px solid var(--line);flex:none}
 .tm .nm{flex:1;min-width:0;font:800 23px/1.15 var(--disp);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tm .nm{flex:1 1 auto}
+.tinfo{display:flex;flex-direction:column;align-items:flex-end;justify-content:center;min-width:0;max-width:52%;flex:0 1 auto;font:600 12px/1.25 var(--body);color:var(--muted);text-align:right}
+.tinfo span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.tinfo span:first-child{color:var(--ink);opacity:.85;font-weight:700;font-variant-numeric:tabular-nums}
 .rk{font:600 14px var(--body);color:var(--dim);margin-right:3px}
 .sc{font:900 28px/1 var(--disp);font-variant-numeric:tabular-nums}
 .sc.lose{color:var(--dim)}
@@ -488,7 +492,7 @@ const TEAM_LGS = LEAGUES.filter(l => l.type === 'team');
 const COLLEGE_LGS = LEAGUES.filter(l => l.college);
 const BOOKS = ['DraftKings','FanDuel','Bet365','BetMGM','Fanatics','Hard Rock','theScore','BetRivers','betPARX','Caesars','ESPN BET'];
 const BOOK_MAP = {draftkings:'DraftKings', fanduel:'FanDuel', betmgm:'BetMGM', caesars:'Caesars', espnbet:'ESPN BET', bet365:'Bet365', fanatics:'Fanatics', hardrock:'Hard Rock', hardrockbet:'Hard Rock', betrivers:'BetRivers', thescore:'theScore', betparx:'betPARX'};
-const BUILD = '2026-11-02 v47';
+const BUILD = '2026-11-02 v48';
 /* The Call Sheet lives on the same site (jibboo72.github.io), so its saved
    data and its published odds file are both readable from here. */
 const CS_KEY = 'nfl-call-sheet-v3';
@@ -853,8 +857,16 @@ function teamOf(c){
     score: scoreVal(c && c.score), rank: rank && rank < 99 ? rank : null,
     record: (c && ((c.records && c.records[0] && c.records[0].summary) || (c.record && c.record[0] && (c.record[0].summary || c.record[0].displayValue)))) || '',
     winner: !!(c && c.winner), conf: t.conferenceId || '',
+    recs: (() => { const o = {}; ((c && c.records) || []).forEach(r => { const k = String(r.type || r.name || '').toLowerCase(); if (/home/.test(k)) o.home = r.summary; else if (/road|away/.test(k)) o.road = r.summary; else if (/conf/.test(k)) o.conf = r.summary; }); return o; })(),
+    ls: ((c && c.linescores) || []).map(x => x.displayValue ?? x.value),
+    ldr: (() => { const L = (c && c.leaders) || []; for (const cat of L){ const t2 = leaderText(cat); if (t2) return t2; } return ''; })(),
     color: t.color || '', alt: t.alternateColor || ''
   };
+}
+function teamLdr(t, c){
+  if (t.ldr || !c || !(c.leaders || []).length) return t;
+  for (const cat of c.leaders){ const L = (cat.leaders || []).find(x => x.team && String(x.team.id) === String(t.id)); if (L){ const t2 = leaderText({leaders: [L]}); if (t2){ t.ldr = t2; break; } } }
+  return t;
 }
 function norm(ev, lgKey){
   const c = (ev.competitions && ev.competitions[0]) || {};
@@ -870,7 +882,7 @@ function norm(ev, lgKey){
     id: String(ev.id), lg: lgKey, path: ev._path || LG[lgKey].path, date: ev.date,
     name: ev.shortName || ev.name, state: st.state || 'pre', detail: st.shortDetail || st.detail || '',
     per: (ev.status || c.status || {}).period || 0, clock: (ev.status || c.status || {}).displayClock || '',
-    home: teamOf(home), away: teamOf(away),
+    home: teamLdr(teamOf(home), c), away: teamLdr(teamOf(away), c),
     odds: {details: o.details, ou: o.overUnder, homeML: o.homeTeamOdds && o.homeTeamOdds.moneyLine, awayML: o.awayTeamOdds && o.awayTeamOdds.moneyLine},
     net: bc
   };
@@ -1432,7 +1444,7 @@ function gameCard(ev, ctx){
     const right = ev.state === 'pre'
       ? `<span class="ml">${mlv !== undefined && mlv !== null ? fmtOdds(mlv) : ''}</span>`
       : `<span class="sc ${ev.state === 'post' && parseFloat(t.score) < parseFloat(other.score) ? 'lose' : ''}${flashCls(ev, side)}">${esc(t.score)}</span>`;
-    return `<div class="tm">${logo(t.logo)}<span class="nm"><span data-h="${h(() => go('team', {lg: ev.lg, id: t.id, t: tsnap(t)}))}">${t.rank ? `<span class="rk">${t.rank}</span>` : ''}${esc(t.short)}</span>${mark(t)}${poss(t)}</span>${right}</div>`;
+    return `<div class="tm">${logo(t.logo)}<span class="nm"><span data-h="${h(() => go('team', {lg: ev.lg, id: t.id, t: tsnap(t)}))}">${t.rank ? `<span class="rk">${t.rank}</span>` : ''}${esc(t.short)}</span>${mark(t)}${poss(t)}</span>${teamInfo(ev, t, side)}${right}</div>`;
   };
   const sit = ev.state === 'in' ? sitText(ev) : '';
   const bands = bs.slice(0, 3).map(b => betBand(b, ev, null, null, ev._s)).join('') + (bs.length > 3 ? `<div class="bband"><span>+${bs.length - 3} more bets</span></div>` : '');
@@ -1985,6 +1997,7 @@ VIEWS.tonight = {
     const seen = new Set();
     const mine = evs.filter(e => (isFav(e) || betsFor(e).length) && !seen.has(e.id) && seen.add(e.id)).sort(sortEvents);
     rememberEvs(mine); recordOwnClv(mine);
+    await Promise.allSettled([...new Set(mine.map(e => e.lg))].map(k => standMap(k)));
     let fantasy = null;
     if (mflOn() && S.mfl.franchise){
       try { const snap = await mflSnapshot(); if (myMatchup(snap)) fantasy = snap; } catch (e){}
@@ -4154,6 +4167,76 @@ function cbbStandings(confs, key){
     return `<button class="lb" data-h="${h(() => t.id && go('team', {lg: 'cbb', id: t.id, t: tsnap(t)}))}" style="grid-template-columns:30px 1fr 64px 64px"><span class="p">${i + 1}</span><span class="${fav ? 'fav' : ''}" style="display:flex;align-items:center;gap:8px;font:800 19px var(--disp);min-width:0">${lg2 ? `<img class="logoimg" style="width:22px;height:22px" src="${esc(lg2)}" alt="" loading="lazy">` : ''}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(t.shortDisplayName || t.displayName || '')}</span></span><span style="font:800 16px var(--body);text-align:right">${esc(cp ? cp.txt : '—')}</span><span class="sub" style="text-align:right">${esc(ov)}</span></button>`;
   };
   return `<div class="lbl ghdr">${esc(c.name)}</div><div class="lbl" style="display:grid;grid-template-columns:30px 1fr 64px 64px;gap:0;padding:0 2px;font-size:11px"><span></span><span></span><span style="text-align:right">CONF</span><span style="text-align:right">ALL</span></div><div>${ents.map(row).join('')}</div>`;
+}
+
+/* ================= TEAM DETAIL ON SCORE CARDS =================
+   The space between a team's name and its score holds a two-line block:
+   before the game its record, streak and where it sits in its division or
+   conference (plus home/road or conference record); during and after the
+   game the score by period and its top performer. Standings come from one
+   cached call per league. */
+const STANDS = {};
+async function standMap(lgKey){
+  const l = LG[lgKey]; if (!l || l.nostand || l.type !== 'team') return null;
+  const c = STANDS[lgKey]; if (c && Date.now() - c.at < 30 * 60000) return c.m;
+  const q = lgKey === 'cfb' ? '?group=80' : lgKey === 'cbb' ? '?group=50' : l.college ? '' : '?level=3';
+  let d; try { d = await getJSON(`${STAND}${l.path}/standings${q}`, 30 * 60000); } catch (e){ return null; }
+  const m = new Map();
+  (function walk(n){
+    if (!n) return;
+    const ents = (n.standings && n.standings.entries) || [];
+    if (ents.length){
+      const grp = shortGroup(n);
+      const key = e => l.college ? ((confPct(e) || {}).pct || 0) * 1000 + stat(e, 'winPercent', true) : l.pts ? stat(e, 'points', true) * 1000 + stat(e, 'winPercent', true) : stat(e, 'winPercent', true) * 1000 + stat(e, 'wins', true);
+      ents.slice().sort((a, b) => key(b) - key(a)).forEach((e, i) => {
+        const t = e.team || {}; if (!t.id) return;
+        const st = stat(e, 'streak');
+        m.set(String(t.id), {place: i + 1, grp, streak: /^[WLT]\d+$/i.test(st) ? st.toUpperCase() : (/^\d+$/.test(st) ? '' : st), conf: confPct(e)});
+      });
+    }
+    (n.children || []).forEach(walk);
+  })(d);
+  STANDS[lgKey] = {at: Date.now(), m};
+  return m;
+}
+function shortGroup(n){
+  const nm = String(n.name || '');
+  if (/conference$/i.test(nm) || n.abbreviation) return confShort(n);
+  return nm.replace(/\s+division$/i, '').replace(/^(American|National) Football Conference\s*/i, '');
+}
+const ORD = n => { const s = ['th', 'st', 'nd', 'rd'], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); };
+function teamInfo(ev, t, side){
+  const st = (STANDS[ev.lg] && STANDS[ev.lg].m && STANDS[ev.lg].m.get(String(t.id))) || null;
+  let l1 = [], l2 = [];
+  if (ev.state === 'pre'){
+    if (t.record) l1.push(t.record);
+    if (st && st.streak) l1.push(st.streak);
+    const col = LG[ev.lg] && LG[ev.lg].college;
+    if (col){
+      const cr = (t.recs && t.recs.conf) || (st && st.conf && st.conf.txt);
+      if (st && st.grp) l2.push(`${ORD(st.place)} ${st.grp}${cr ? ' ' + cr : ''}`);
+      else if (cr) l2.push('Conf ' + cr);
+    } else {
+      if (st && st.grp) l2.push(`${ORD(st.place)} ${st.grp}`);
+      const hr = side === 'home' ? (t.recs && t.recs.home) : (t.recs && t.recs.road);
+      if (hr) l1.push(`${side === 'home' ? 'H' : 'A'} ${hr}`);
+    }
+  } else {
+    const ls = (t.ls || []).filter(x => x !== null && x !== undefined && x !== '');
+    if (ls.length && ls.length <= 12) l1.push(ls.join(' '));
+    if (t.ldr) l2.push(t.ldr);
+    else if (t.record) l2.push(t.record);
+  }
+  if (!l1.length && !l2.length) return '';
+  return `<span class="tinfo"><span>${esc(l1.join(' · '))}</span><span>${esc(l2.join(' · '))}</span></span>`;
+}
+function leaderText(cat){
+  const L = cat && cat.leaders && cat.leaders[0];
+  if (!L || !L.athlete) return '';
+  const nm = L.athlete.shortName || L.athlete.displayName || '';
+  let v = String(L.displayValue || L.value || '').split(',')[0].replace(/\s+/g, ' ').trim();
+  if (/^\d+(\.\d+)?$/.test(v)) v += ' ' + String(cat.abbreviation || cat.shortDisplayName || ({points: 'PTS', rebounds: 'REB', assists: 'AST', goals: 'G', saves: 'SV'}[cat.name] || '')).toUpperCase();
+  return nm && v ? `${nm} ${v.trim()}` : '';
 }
 
 /* ---------- LEAGUE ---------- */
