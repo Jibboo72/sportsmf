@@ -25,7 +25,8 @@ Each tries the same-origin `jibboo72.github.io` path first, then `raw.githubuser
 | callsheet-data | `data/odds-2026.json` | prices |
 | callsheet-data | `data/ratings-2026.json` | NFL power ratings |
 | callsheet-data | `data/weather-2026.json`, `data/experts-2026.json` | weather flags, expert crowd |
-| scoresheet | `docs/data/board.json` | NHL prop board |
+| scoresheet | `docs/data/board.json` | NHL prop board (game page › Bet › Props) |
+| Hoops-Props | `docs/data/board.json` | NBA prop board (game page › Bet › Props) — matched by ESPN game id |
 
 ## Live feeds (from your phone)
 

@@ -1737,6 +1737,89 @@ function nhlPropsTab(d, ev, p, room){
     <div class="sub" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(goalies)}${goalies ? ' · ' : ''}board ${esc(ago(B.generated))}</div>`;
 }
 
+/* ---------- NBA props from your Buckets board (Hoops-Props) ----------
+   Same rules as Buckets' Tonight page: "likely" plays are the ones it marks
+   likely; "edge" is EV of 5% or more at max_price or shorter; 30%+ EV is
+   flagged as too good to trust without a check. Board games carry ESPN's
+   event id, so games match exactly; team codes are the fallback. */
+const HP_BOARD = ['/Hoops-Props/data/board.json', 'https://raw.githubusercontent.com/Jibboo72/Hoops-Props/main/docs/data/board.json'];
+const NBA_ALIAS = {GS:'GSW', NY:'NYK', SA:'SAS', NO:'NOP', UTAH:'UTA', WSH:'WAS', PHO:'PHX', BK:'BKN'};
+const nbaAbbr = a => NBA_ALIAS[String(a || '').toUpperCase()] || String(a || '').toUpperCase();
+const HP_FAM = {thr: 'threes', reb: 'rebounds', ast: 'assists'};
+async function hpBoard(){
+  let last;
+  for (const u of HP_BOARD){ try { return await getJSON(u, 10 * 60000); } catch (e){ last = e; } }
+  throw last || new Error('Buckets board unavailable');
+}
+function hpGameFor(board, ev){
+  const gs = (board && board.games) || [];
+  const byId = gs.find(g => String(g.id) === String(ev.id)); if (byId) return byId;
+  const h = nbaAbbr(ev.home.abbr), a = nbaAbbr(ev.away.abbr), t = new Date(ev.date).getTime();
+  return gs.find(g => nbaAbbr(g.home) === h && nbaAbbr(g.away) === a && Math.abs(new Date(g.start).getTime() - t) < 864e5) || null;
+}
+function nbaPropsTab(d, ev, p, room){
+  if (d.hpErr) return `<div class="empty">Couldn't reach your Buckets board.<br><small>${esc(d.hpErr)}</small></div>`;
+  const B = d.hp, g = d.hpGame;
+  if (!B || !g) return '<div class="empty">This game isn\'t on your Buckets board. The board only covers today\'s slate.</div>';
+  const fam = ['thr', 'reb', 'ast'].includes(p.mkt) ? p.mkt : 'thr';
+  const players = (B.players || []).filter(x => String(x.game_id) === String(g.id));
+  const max = B.max_price || 500;
+  const keys = (B.markets || []);
+  const part = k => { const a = k.split('_'); return {fam: a[0], side: a[1][0], pt: a[1].slice(1)}; };
+  const lab = k => { const q = part(k); return `${q.side === 'o' ? 'over' : 'under'} ${q.pt} ${HP_FAM[q.fam]}`; };
+  const priced = m => m && m.price !== null && m.price !== undefined && m.ev !== null && m.ev !== undefined;
+  const kind = m => !m ? '' : m.likely ? 'likely' : !priced(m) ? '' : m.ev >= 0.30 ? 'flag' : (m.ev >= 0.05 && m.price <= max) ? 'edge' : '';
+  const all = players.flatMap(x => keys.filter(k => x[k]).map(k => ({x, k, m: x[k], kd: kind(x[k])})));
+  const picks = all.filter(r => r.kd);
+  const cnt = k => picks.filter(r => r.kd === k).length;
+  // this market: every play first, then each player's main line (the over closest to a coin flip)
+  const famPicks = picks.filter(r => part(r.k).fam === fam);
+  const seen = new Set(famPicks.map(r => r.x.id));
+  const mains = players.filter(x => !seen.has(x.id)).map(x => {
+    const os = keys.filter(k => x[k] && part(k).fam === fam && part(k).side === 'o');
+    if (!os.length) return null;
+    const pr = os.filter(k => priced(x[k]));
+    const pool = pr.length ? pr : os;
+    const k = pool.slice().sort((a, b) => Math.abs(x[a].p - 0.5) - Math.abs(x[b].p - 0.5))[0];
+    return {x, k, m: x[k], kd: ''};
+  }).filter(Boolean).sort((a, b) => (b.x['exp_' + fam] || 0) - (a.x['exp_' + fam] || 0));
+  const rank = {likely: 0, edge: 1, flag: 2};
+  const rows = famPicks.sort((a, b) => rank[a.kd] - rank[b.kd] || (b.m.ev || 0) - (a.m.ev || 0)).concat(mains);
+  const summary = picks.length
+    ? `<div style="font:700 14px var(--body);color:var(--green-t)">★ ${[cnt('likely') ? cnt('likely') + ' likely' : '', cnt('edge') ? cnt('edge') + ' edge' : '', cnt('flag') ? cnt('flag') + ' to check' : ''].filter(Boolean).join(' · ')} from your Buckets board</div>`
+    : `<div class="sub">${all.some(r => priced(r.m)) ? 'No Buckets plays in this game right now. Passing is a fine bet.' : 'No sportsbook prices on the board yet — compare the fair odds to your book.'}</div>`;
+  const per = perPage(room + 150, 190, 64, 2);
+  const pg = slicePage(rows, per, p.page);
+  const pct = v => v === null || v === undefined ? '—' : Math.round(v * 100) + '%';
+  const tagHtml = r => {
+    const base = `${esc(lab(r.k))}`;
+    if (r.kd === 'likely') return `<span style="font:700 13px var(--body);color:var(--green-t)">★ LIKELY · ${base} · model ${pct(r.m.p)}</span>`;
+    if (r.kd === 'edge') return `<span style="font:700 13px var(--body);color:var(--green-t)">★ EDGE +${Math.round(r.m.ev * 100)}% · ${base} · model ${pct(r.m.p)}</span>`;
+    if (r.kd === 'flag') return `<span style="font:700 13px var(--body);color:var(--red)">⚠ CHECK +${Math.round(r.m.ev * 100)}% · ${base} · confirm minutes</span>`;
+    return `<span class="sub">${esc(r.x.team)} · ${base} · model ${pct(r.m.p)} · fair ${fmtOdds(r.m.fair)} · proj ${(+(r.x['exp_' + fam] || 0)).toFixed(1)}</span>`;
+  };
+  const priceBtn = r => {
+    if (!priced(r.m)) return `<span class="sub" style="text-align:right;line-height:1.2">fair<br><b style="font:700 15px var(--body);color:var(--ink)">${fmtOdds(r.m.fair)}</b></span>`;
+    const book = SS_BOOKS[r.m.book] || r.m.book || '';
+    const desc = `${r.x.name} ${lab(r.k)}`;
+    return `<button class="chip" style="height:44px;display:flex;flex-direction:column;justify-content:center;line-height:1.1;padding:0 10px" data-h="${h(() => {
+      const f = defaultForm(ev); const o = parseInt(r.m.price, 10);
+      Object.assign(f, {type:'prop', prop: desc, oddsAbs: String(Math.abs(o) || ''), oddsNeg: o < 0, book: BOOKS.includes(book) ? book : f.book});
+      go('addbet', {step:'form', lg: ev.lg, ev, f});
+    })}"><b style="font-size:15px">${fmtOdds(r.m.price)}</b><small style="font:600 11px var(--body);opacity:.75">${esc(book)}</small></button>`;
+  };
+  const rowHtml = r => {
+    const hi = r.kd === 'likely' || r.kd === 'edge';
+    return `<div class="lrow" style="padding:8px ${hi ? '10px' : '2px'};${hi ? 'background:var(--green-bg);border-radius:12px;border-bottom-color:transparent;margin-bottom:4px' : ''}"><span class="main"><span style="font:700 17px var(--body);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(r.x.name)} <small style="font:600 12px var(--body);color:var(--muted)">~${Math.round(r.x.min || 0)} min</small></span>${tagHtml(r)}</span>${priceBtn(r)}</div>`;
+  };
+  const opt = (k, l) => `<option value="${k}" ${k === fam ? 'selected' : ''}>${l}${picks.some(r => part(r.k).fam === k) ? '  ★' + picks.filter(r => part(r.k).fam === k).length : ''}</option>`;
+  const line = g.total != null ? `total ${g.total}${g.spread_home != null ? ` · ${esc(g.home)} ${g.spread_home > 0 ? '+' : ''}${g.spread_home}` : ''} · ` : '';
+  return `${summary}<div class="row" style="gap:8px"><select id="mktSel" aria-label="Prop market" style="flex:1">${opt('thr', 'Threes made')}${opt('reb', 'Rebounds')}${opt('ast', 'Assists')}</select></div>
+    <div>${pg.items.length ? pg.items.map(rowHtml).join('') : '<div class="empty">No players in this market.</div>'}</div>
+    ${pager(pg.page, pg.pages, n => setP({page: n}))}
+    <div class="sub" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${line}board ${esc(ago(B.generated))}</div>`;
+}
+
 /* ---------- MyFantasyLeague ----------
    MFL's API terms forbid calling it with JavaScript from pages outside
    myfantasyleague.com. So a GitHub Action in this repo (mfl_pull.py)
@@ -3587,7 +3670,7 @@ VIEWS.player = {
 };
 
 /* ---------- GAME ---------- */
-const BET_SUBS = lg => ['lines'].concat(lg === 'nfl' || lg === 'nhl' ? ['props'] : [], lg === 'nfl' || lg === 'cfb' ? ['model'] : []);
+const BET_SUBS = lg => ['lines'].concat(lg === 'nfl' || lg === 'nhl' || lg === 'nba' ? ['props'] : [], lg === 'nfl' || lg === 'cfb' ? ['model'] : []);
 function betSub(p, lg){
   const subs = BET_SUBS(lg);
   if (subs.includes(p.sub)) return p.sub;
@@ -3623,6 +3706,10 @@ VIEWS.game = {
     if (p.lg === 'nhl' && t === 'bet' && sub === 'props'){
       try { const bd = await ssBoard(); out.ss = bd; out.ssGame = ssGameFor(bd, ev); }
       catch (e){ out.ssErr = e.message; }
+    }
+    if (p.lg === 'nba' && t === 'bet' && sub === 'props'){
+      try { const bd = await hpBoard(); out.hp = bd; out.hpGame = hpGameFor(bd, ev); }
+      catch (e){ out.hpErr = e.message; }
     }
     if (p.lg === 'nfl' && t === 'bet' && sub === 'props'){
       try { const od = await csOdds(); out.csGame = csGameFor(od, ev); out.csPulled = od.pulled; }
@@ -3710,7 +3797,7 @@ function betTab(d, ev, p, avail, bets, tapBet){
   const lbl = {lines: 'Lines', props: 'Props', model: 'Our pick'};
   let html = subs.length > 1 ? `<div class="chips sm">${subs.map(k => `<button class="chip ${sub === k ? 'on' : ''}" data-h="${h(() => setP({tab: 'bet', sub: k, page: 0, mkt: undefined}))}">${lbl[k]}</button>`).join('')}</div>` : '';
   if (sub === 'lines') html += oddsTab(d.s, ev, d);
-  if (sub === 'props') html += ev.lg === 'nhl' ? nhlPropsTab(d, ev, p, avail) : propsTab(d, ev, p, avail);
+  if (sub === 'props') html += ev.lg === 'nhl' ? nhlPropsTab(d, ev, p, avail) : ev.lg === 'nba' ? nbaPropsTab(d, ev, p, avail) : propsTab(d, ev, p, avail);
   if (sub === 'model') html += pickCard(d, ev, p) + (modelBlock(d, ev) ? `<div style="margin-top:14px">${modelBlock(d, ev)}</div>` : '');
   if (bets.length){
     html += `<div><div class="lbl" style="margin-bottom:6px">Your bets</div><div class="card" style="cursor:default">${bets.map(b => betBand(b, ev, 'button', tapBet(b), d.s)).join('')}</div></div>`;
