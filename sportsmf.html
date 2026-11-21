@@ -515,7 +515,7 @@ const TEAM_LGS = LEAGUES.filter(l => l.type === 'team');
 const COLLEGE_LGS = LEAGUES.filter(l => l.college);
 const BOOKS = ['DraftKings','FanDuel','Bet365','BetMGM','Fanatics','Hard Rock','theScore','BetRivers','betPARX','Caesars','ESPN BET'];
 const BOOK_MAP = {draftkings:'DraftKings', fanduel:'FanDuel', betmgm:'BetMGM', caesars:'Caesars', espnbet:'ESPN BET', bet365:'Bet365', fanatics:'Fanatics', hardrock:'Hard Rock', hardrockbet:'Hard Rock', betrivers:'BetRivers', thescore:'theScore', betparx:'betPARX'};
-const BUILD = '2026-11-20 v51';
+const BUILD = '2026-11-20 v52';
 /* The Call Sheet lives on the same site (jibboo72.github.io), so its saved
    data and its published odds file are both readable from here. */
 const CS_KEY = 'nfl-call-sheet-v3';
@@ -2907,6 +2907,9 @@ function courtTab(s, ev, p){
       ${props ? `<div class="sprops">${props}</div>` : ''}</div>`;
   }
   html += hoopsPropBars(ev, s);
+  /* play-by-play goes here; the shot chart moves to the bottom */
+  html += '\u0003PBP\u0003';
+  let shotHtml = '';
   /* shot chart */
   const sl = shotList(ev, plays);
   if (sl.shots.length >= 3){
@@ -2914,7 +2917,7 @@ function courtTab(s, ev, p){
     const chip = (k, l) => `<button class="chip ${who === k ? 'on' : ''}" data-h="${h(() => setP({who: k}))}">${l}</button>`;
     const mine = sl.shots.filter(s2 => who === 'both' || s2.side === who), z = shotSplit(mine);
     const zf = (l, v) => `<span><b>${v[0]}/${v[1]}</b> ${l}${v[1] ? ` <small>${Math.round(v[0] / v[1] * 100)}%</small>` : ''}</span>`;
-    html += `<div><div class="row" style="margin-bottom:8px"><span class="lbl">Shot chart</span><div class="chips sm" style="margin:0">${chip('away', esc(ev.away.abbr))}${chip('home', esc(ev.home.abbr))}${chip('both', 'Both')}</div></div>
+    shotHtml += `<div><div class="row" style="margin-bottom:8px"><span class="lbl">Shot chart</span><div class="chips sm" style="margin:0">${chip('away', esc(ev.away.abbr))}${chip('home', esc(ev.home.abbr))}${chip('both', 'Both')}</div></div>
       ${courtSvg(ev, sl, who)}
       <div class="zones">${zf('at rim', z.rim)}${zf('mid', z.mid)}${zf('3PT', z.three)}</div>
       <div class="sub" style="margin-top:4px">● made · ✕ missed · ring = latest shot</div></div>`;
@@ -2931,6 +2934,7 @@ function courtTab(s, ev, p){
   html += hoopsLeaders(s, ev);
   html += hoopsCompare(s, ev);
   /* play by play */
+  const before = html; html = '';
   const f = ['all', 'score', 'mine'].includes(p.pf) ? p.pf : 'all';
   const hit = betNames(ev), hasMine = betsFor(ev).some(b => b.type === 'prop');
   plays.forEach((x, i) => { x._i = i; });
@@ -2962,7 +2966,7 @@ function courtTab(s, ev, p){
   html += `<div><div class="row" style="margin-bottom:6px"><span class="lbl">Play-by-play</span><div class="chips sm" style="margin:0">${pchip('all', 'All')}${pchip('score', 'Scoring')}${hasMine ? pchip('mine', '★ Mine') : ''}</div></div>
     ${rows || '<div class="empty" style="padding:10px">Nothing here yet.</div>'}
     ${list.length > n ? `<button class="linkbtn" style="margin-top:8px" data-h="${h(() => setP({pn: n + 50}))}">Show ${Math.min(50, list.length - n)} more</button>` : ''}</div>`;
-  return html;
+  return before.replace('\u0003PBP\u0003', html) + shotHtml;
 }
 
 /* ================= HOCKEY RINK TRACKER =================
