@@ -278,10 +278,17 @@ button.lb{width:100%;border-left:0;border-right:0;border-top:0;background:none;t
 .ptag.reb{background:color-mix(in srgb,var(--blue) 16%,transparent);color:var(--blue)}.ptag.foul{background:color-mix(in srgb,#E0A100 18%,transparent);color:#C48A00}
 .bprow.meta .tx{color:var(--muted);font-size:14px}
 .bprow .tx b,.prow2 b{font-weight:800}
-.bprow.spot,.prow2.spot{background:color-mix(in srgb,#FFD54A 22%,transparent);border-radius:8px}
+.bprow.spot,.prow2.spot{background:color-mix(in srgb,var(--hl,#FFD54A) 22%,transparent);border-radius:8px}
 mark.spotnm{background:#FFD54A;color:#111;border-radius:4px;padding:0 3px;font-weight:800}
 .spotbar{position:sticky;top:40px;z-index:2;background:var(--bg);padding:6px 0;border-bottom:1px solid var(--line)}
-.spotline{margin-top:8px;border:1.5px solid #FFD54A;border-radius:12px;padding:8px 10px}
+.spotlines{display:flex;flex-direction:column;gap:6px;margin-top:8px}.spotlines .sponly{margin-left:0;align-self:flex-end}
+.spotline{border:1.5px solid var(--sc,#FFD54A);border-left-width:6px;border-radius:12px;padding:6px 10px}
+.spotline.mini{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 8px;padding:4px 8px}
+.spotline.mini .nm{font:800 14px var(--body);white-space:nowrap}.spotline.mini .st{font:600 13px var(--body);color:var(--muted);flex:1;min-width:0}.spotline.mini .st b{color:var(--ink);font:900 15px var(--disp)}
+.spotline.mini .spprops{flex-basis:100%;margin-top:0}.spotline.mini .spprop{font-size:12px}
+.spotlines:has(.mini){gap:4px}
+.spx{margin-left:auto;background:none;border:0;color:var(--muted);font-size:16px;cursor:pointer;padding:0 2px}
+.chip.spotchip{background:var(--sc)!important;color:#111!important;border-color:var(--sc)!important}
 .sphd{display:flex;align-items:center;gap:8px;font:800 17px var(--body)}.sphd img{width:22px;height:22px}
 .sponly{margin-left:auto;font:600 13px var(--body);color:var(--muted);display:flex;align-items:center;gap:4px;white-space:nowrap}
 .spstats{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:4px;font:600 13px var(--body);color:var(--muted)}.spstats b{font:900 18px var(--disp);color:var(--ink);margin-right:3px}
@@ -515,7 +522,7 @@ const TEAM_LGS = LEAGUES.filter(l => l.type === 'team');
 const COLLEGE_LGS = LEAGUES.filter(l => l.college);
 const BOOKS = ['DraftKings','FanDuel','Bet365','BetMGM','Fanatics','Hard Rock','theScore','BetRivers','betPARX','Caesars','ESPN BET'];
 const BOOK_MAP = {draftkings:'DraftKings', fanduel:'FanDuel', betmgm:'BetMGM', caesars:'Caesars', espnbet:'ESPN BET', bet365:'Bet365', fanatics:'Fanatics', hardrock:'Hard Rock', hardrockbet:'Hard Rock', betrivers:'BetRivers', thescore:'theScore', betparx:'betPARX'};
-const BUILD = '2026-11-20 v54';
+const BUILD = '2026-11-20 v57';
 /* The Call Sheet lives on the same site (jibboo72.github.io), so its saved
    data and its published odds file are both readable from here. */
 const CS_KEY = 'nfl-call-sheet-v3';
@@ -2383,7 +2390,7 @@ function playRows(plays, ev, o){
     const yd = y === undefined || y === null || special ? '' : `<span class="yd" style="color:${y > 0 ? 'var(--green-t)' : y < 0 ? 'var(--red)' : 'var(--muted)'}">${y > 0 ? '+' : ''}${y}</span>`;
     const tg = fbTag(x), isSpot = o.spot && o.spot.test(x.text);
     const here = o.here && o.here(x) ? `<div class="herebar">You were here · ${agoMin(o.sinceAt)} ago</div>` : '';
-    return `${here}<div class="prow2${isSpot ? ' spot' : ''}" style="${x.scoringPlay ? 'background:var(--green-bg);border-radius:10px;padding-left:8px;padding-right:8px' : ''}"><span class="dn">${esc(dn.replace(/&amp;/g, '&')) || esc(ty)}</span><span style="font:500 15px/1.35 var(--body)">${tg[0] ? `<span class="ptag ${tg[1]}">${esc(tg[0])}</span>` : ''}${boldNames(x.text || '', o.re, o.spot && o.spot.re)}</span>${yd}</div>`;
+    return `${here}<div class="prow2${isSpot ? ' spot' : ''}" style="${isSpot ? spotStyle(o.spot, x.text) + ';' : ''}${x.scoringPlay ? 'background:var(--green-bg);border-radius:10px;padding-left:8px;padding-right:8px' : ''}"><span class="dn">${esc(dn.replace(/&amp;/g, '&')) || esc(ty)}</span><span style="font:500 15px/1.35 var(--body)">${tg[0] ? `<span class="ptag ${tg[1]}">${esc(tg[0])}</span>` : ''}${boldNames(x.text || '', o.re, o.spot)}</span>${yd}</div>`;
   }).join('');
 }
 function driveTeam(dv, ev){
@@ -2529,11 +2536,12 @@ function nameRegex(names){
   al.sort((a, b) => b.length - a.length);
   return new RegExp('(^|[^A-Za-z])(' + al.map(reEsc).join('|') + ')(?![a-z])', 'g');
 }
-function boldNames(text, re, spotRe){
+function boldNames(text, re, spot){
   let t = esc(text);
-  if (spotRe) t = t.replace(spotRe, (m0, pre, nm) => `${pre}\u0001${nm}\u0002`);
-  if (re) t = t.replace(re, (m0, pre, nm) => /\u0001/.test(pre) ? m0 : `${pre}<b>${nm}</b>`);
-  return t.replace(/\u0001([^\u0002]*)\u0002/g, '<mark class="spotnm">$1</mark>');
+  const list = spot && spot.list ? spot.list : [];
+  list.forEach(x => { x.re.lastIndex = 0; t = t.replace(x.re, (m0, pre, nm) => `${pre}\u0001${x.i}\u0004${nm}\u0002`); });
+  if (re) t = t.replace(re, (m0, pre, nm) => /\u0001|\u0004/.test(pre + nm) ? m0 : `${pre}<b>${nm}</b>`);
+  return t.replace(/\u0001(\d)\u0004([^\u0002]*)\u0002/g, (m0, i, nm) => `<mark class="spotnm" style="background:${SPOT_COLORS[+i]}">${nm}</mark>`);
 }
 /* ---------- basketball ---------- */
 function hoopsTag(x){
@@ -2632,20 +2640,28 @@ function fbSpotLine(s, nm){
   return parts.length ? parts : null;
 }
 /* ---------- shared pieces ---------- */
-/* the spotlighted player (and "only his plays") is remembered per game, so
-   coming back to the game picks up where you were */
-const SPOT_KEY = 'spots';
+/* Spotlight up to four players at once, each in its own color. The picks
+   (and "only their plays") are remembered per game. */
+const SPOT_KEY = 'spots', SPOT_MAX = 4;
+const SPOT_COLORS = ['#FFD54A', '#5CD3FF', '#FF8AC8', '#9BE15D'];
 function spotRestore(ev, p){
-  if (p.spot !== undefined) return;
+  if (p.spots !== undefined) return;
   const v = store.get(SPOT_KEY, {})[ev.lg + ':' + ev.id];
-  p.spot = v ? v.n : null; p.spOnly = !!(v && v.o);
+  p.spots = v ? (Array.isArray(v.n) ? v.n : (v.n ? [v.n] : [])) : [];
+  p.spOnly = !!(v && v.o);
 }
-function spotSet(ev, name, only){
+function spotSet(ev, names, only){
+  names = (names || []).slice(0, SPOT_MAX);
   const m = store.get(SPOT_KEY, {}), k = ev.lg + ':' + ev.id;
-  if (name) m[k] = {n: name, o: !!only, at: Date.now()}; else delete m[k];
+  if (names.length) m[k] = {n: names, o: !!only, at: Date.now()}; else delete m[k];
   const ks = Object.keys(m); if (ks.length > 60) ks.sort((a, b) => (m[a].at || 0) - (m[b].at || 0)).slice(0, ks.length - 60).forEach(x => delete m[x]);
   store.set(SPOT_KEY, m);
-  setP({spot: name || null, spOnly: !!only});
+  setP({spots: names, spOnly: names.length ? !!only : false});
+}
+function spotToggle(ev, p, name){
+  const cur2 = (p.spots || []).slice(), i = cur2.indexOf(name);
+  if (i >= 0) cur2.splice(i, 1); else { if (cur2.length >= SPOT_MAX) cur2.shift(); cur2.push(name); }
+  spotSet(ev, cur2, p.spOnly);
 }
 function spotPlayers(s, ev){
   const roster = rosterOf(s), hit = betNames(ev);
@@ -2655,36 +2671,57 @@ function spotPlayers(s, ev){
 function spotBar(s, ev, p, sport){
   const {roster, mine} = spotPlayers(s, ev);
   if (!roster.length) return '';
-  const sp = p.spot && roster.find(r => r.name === p.spot) ? p.spot : null;
+  const sel = (p.spots || []).filter(n => roster.some(r => r.name === n));
   const lead = [];
   if (sport === 'hoops'){
     const pts = n => { const l = hoopsSpotLine(s, n); const v = l && l.find(x => x[1] === 'PTS'); return v ? +v[0] || 0 : 0; };
     ['away', 'home'].forEach(sd => roster.filter(r => r.team === String(ev[sd].id)).sort((a, b) => pts(b.name) - pts(a.name)).slice(0, 2).forEach(r => lead.push(r)));
   }
-  const chips = [...new Map(mine.concat(lead).map(r => [r.name, r])).values()].slice(0, 8);
-  const chip = r => `<button class="chip ${sp === r.name ? 'on' : ''}" data-h="${h(() => spotSet(ev, sp === r.name ? null : r.name, false))}">${mine.includes(r) ? '★ ' : ''}${esc(boxName({displayName: r.name}))}</button>`;
-  let html = `<div class="spotbar"><div class="row" style="margin-bottom:6px"><span class="lbl">Spotlight a player</span><button class="linkbtn" data-h="${h(() => pickSpot(s, ev, p))}">All players ›</button></div><div class="chips sm scrollx" style="margin:0">${chips.map(chip).join('')}</div>`;
-  if (sp){
-    const ln = sport === 'hoops' ? hoopsSpotLine(s, sp) : fbSpotLine(s, sp);
-    const r = roster.find(x => x.name === sp), tm = r && (String(ev.home.id) === r.team ? ev.home : String(ev.away.id) === r.team ? ev.away : null);
-    const pb = betsFor(ev).filter(b => b.type === 'prop' && nameAliases(sp).some(a => String(b.pick).toLowerCase().includes(a.toLowerCase()))).map(b => { const pr = propRead(b, ev, s); return pr ? `<span class="spprop ${pr.cls}">${esc(b.pick.replace(sp, '').trim())}: ${esc(pr.text)}</span>` : ''; }).join('');
-    html += `<div class="spotline"><div class="sphd">${tm && tm.logo ? logo(tm.logo) : ''}<b>${esc(sp)}</b>${r && r.pos ? `<span class="sub">${esc(r.pos)}</span>` : ''}<label class="sponly"><input type="checkbox" ${p.spOnly ? 'checked' : ''} data-h="${h(() => spotSet(ev, sp, !p.spOnly))}"> Only his plays</label></div>
-      <div class="spstats">${ln ? (sport === 'hoops' ? ln.map(v => `<span><b>${esc(v[0])}</b>${esc(v[1])}</span>`).join('') : ln.map(v => `<span><b>${esc(v[0])}</b>${esc(v[1])}</span>`).join('')) : '<span class="sub">No stats yet</span>'}</div>${pb ? `<div class="spprops">${pb}</div>` : ''}</div>`;
+  const pool = [...new Map(sel.map(n => roster.find(r => r.name === n)).concat(mine, lead).filter(Boolean).map(r => [r.name, r])).values()].slice(0, 10);
+  const colorOf = n => SPOT_COLORS[sel.indexOf(n) % SPOT_COLORS.length];
+  const chip = r => { const on = sel.includes(r.name); return `<button class="chip ${on ? 'on spotchip' : ''}" style="${on ? `--sc:${colorOf(r.name)}` : ''}" data-h="${h(() => spotToggle(ev, p, r.name))}">${mine.includes(r) ? '★ ' : ''}${esc(boxName({displayName: r.name}))}</button>`; };
+  let html = `<div class="spotbar"><div class="row" style="margin-bottom:6px"><span class="lbl">Spotlight${sel.length ? ` ${sel.length}/${SPOT_MAX}` : ' players'}</span><span style="display:flex;gap:12px;align-items:center">${sel.length ? `<label class="sponly"><input type="checkbox" ${p.spOnly ? 'checked' : ''} data-h="${h(() => spotSet(ev, sel, !p.spOnly))}"> Only ${sel.length > 1 ? 'theirs' : 'his'}</label><button class="linkbtn" data-h="${h(() => spotSet(ev, [], false))}">Clear</button>` : ''}<button class="linkbtn" data-h="${h(() => pickSpot(s, ev, p))}">All players ›</button></span></div><div class="chips sm scrollx" style="margin:0">${pool.map(chip).join('')}</div>`;
+  if (sel.length){
+    html += `<div class="spotlines">`;
+    sel.forEach(nm => {
+      const ln = sport === 'hoops' ? hoopsSpotLine(s, nm) : fbSpotLine(s, nm);
+      const r = roster.find(x => x.name === nm), tm = r && (String(ev.home.id) === r.team ? ev.home : String(ev.away.id) === r.team ? ev.away : null);
+      const pb = betsFor(ev).filter(b => b.type === 'prop' && nameAliases(nm).some(a => String(b.pick).toLowerCase().includes(a.toLowerCase()))).map(b => { const pr = propRead(b, ev, s); return pr ? `<span class="spprop ${pr.cls}">${esc(b.pick.replace(nm, '').trim())}: ${esc(pr.text)}</span>` : ''; }).join('');
+      if (sel.length > 1){
+        const keep = sport === 'hoops' ? ['PTS', 'REB', 'AST', '3PT'] : null;
+        const stats = ln ? (keep ? ln.filter(v => keep.includes(v[1])).map(v => `<b>${esc(v[0])}</b> ${esc(v[1])}`) : ln.map(v => `<b>${esc(v[0])}</b>`)).join(' · ') : 'No stats yet';
+        const pr1 = pb ? pb.replace(/<span class="spprop ([^"]*)">[^:]*: /g, '<span class="spprop $1">') : '';
+        html += `<div class="spotline mini" style="--sc:${colorOf(nm)}"><b class="nm">${esc(boxName({displayName: nm}))}</b><span class="st">${stats}</span><button class="spx" aria-label="Remove ${esc(nm)}" data-h="${h(() => spotToggle(ev, p, nm))}">✕</button>${pr1 ? `<div class="spprops">${pr1}</div>` : ''}</div>`;
+        return;
+      }
+      html += `<div class="spotline" style="--sc:${colorOf(nm)}"><div class="sphd">${tm && tm.logo ? logo(tm.logo) : ''}<b>${esc(sel.length > 1 ? boxName({displayName: nm}) : nm)}</b>${r && r.pos ? `<span class="sub">${esc(r.pos)}</span>` : ''}<button class="spx" aria-label="Remove ${esc(nm)}" data-h="${h(() => spotToggle(ev, p, nm))}">✕</button></div>
+        <div class="spstats">${ln ? ln.map(v => `<span><b>${esc(v[0])}</b>${esc(v[1])}</span>`).join('') : '<span class="sub">No stats yet</span>'}</div>${pb ? `<div class="spprops">${pb}</div>` : ''}</div>`;
+    });
+    html += '</div>';
   }
   return html + '</div>';
 }
 function pickSpot(s, ev, p){
   const roster = rosterOf(s);
-  const grp = sd => { const t = ev[sd]; const ps = roster.filter(r => r.team === String(t.id)); return ps.length ? `<div class="lbl" style="margin:10px 0 6px">${esc(t.short || t.abbr)}</div><div class="spgrid">${ps.map(r => `<button class="chip" data-spot="${esc(r.name)}">${esc(boxName({displayName: r.name}))}${r.pos ? ` <small>${esc(r.pos)}</small>` : ''}</button>`).join('')}</div>` : ''; };
-  openSheet(`<div class="lbl">Spotlight a player</div>${grp('away')}${grp('home')}<button class="ghost" id="closeSheetBtn" style="margin-top:12px">Close</button>`);
-  $('#closeSheetBtn').onclick = closeSheet;
-  $('#sheetBody').querySelectorAll('[data-spot]').forEach(b => b.onclick = () => { closeSheet(); spotSet(ev, b.dataset.spot, false); });
+  const draw = () => {
+    const sel = p.spots || [];
+    const grp = sd => { const t = ev[sd]; const ps = roster.filter(r => r.team === String(t.id)); return ps.length ? `<div class="lbl" style="margin:10px 0 6px">${esc(t.short || t.abbr)}</div><div class="spgrid">${ps.map(r => `<button class="chip ${sel.includes(r.name) ? 'on spotchip' : ''}" style="${sel.includes(r.name) ? `--sc:${SPOT_COLORS[sel.indexOf(r.name)]}` : ''}" data-spot="${esc(r.name)}">${esc(boxName({displayName: r.name}))}${r.pos ? ` <small>${esc(r.pos)}</small>` : ''}</button>`).join('')}</div>` : ''; };
+    openSheet(`<div class="lbl">Spotlight up to ${SPOT_MAX} players</div>${grp('away')}${grp('home')}<button class="bigbtn" id="closeSheetBtn" style="margin-top:12px">Done</button>`);
+    $('#closeSheetBtn').onclick = closeSheet;
+    $('#sheetBody').querySelectorAll('[data-spot]').forEach(b => b.onclick = () => { spotToggle(ev, p, b.dataset.spot); draw(); });
+  };
+  draw();
 }
+/* matches play text against each spotlighted player; test() returns that player's index or -1 */
 function spotMatcher(p, s){
-  if (!p.spot) return null;
-  const re = nameRegex([p.spot]); if (!re) return null;
-  return {re, test: t => { re.lastIndex = 0; return re.test(String(t || '')); }};
+  const sel = p.spots || [];
+  if (!sel.length) return null;
+  const list = sel.map((n, i) => ({n, i, re: nameRegex([n])})).filter(x => x.re);
+  if (!list.length) return null;
+  return {list, test: t => { for (const x of list){ x.re.lastIndex = 0; if (x.re.test(String(t || ''))) return true; } return false; },
+    first: t => { for (const x of list){ x.re.lastIndex = 0; if (x.re.test(String(t || ''))) return x.i; } return -1; }};
 }
+function spotStyle(spot, text){ if (!spot) return ''; const i = spot.first(text); return i >= 0 ? `--hl:${SPOT_COLORS[i]}` : ''; }
 function ballBadge(ev, sd, label){
   if (!sd) return '';
   const t = ev[sd], c = teamCol(t, sd === 'home' ? '#3A9BDC' : '#E8833A');
@@ -2976,7 +3013,7 @@ function courtTab(s, ev, p){
     const sc = x.scoringPlay ? `<span class="sc"><b class="${sd === 'away' ? 'hi' : ''}">${esc(x.awayScore)}</b>-<b class="${sd === 'home' ? 'hi' : ''}">${esc(x.homeScore)}</b></span>` : '<span class="sc"></span>';
     const tg = hoopsTag(x), isSpot = spot && spot.test(x.text);
     const here = since && x._i === since.n - 1 ? `<div class="herebar">You were here · ${agoMin(since.at)} ago</div>` : '';
-    return `${here}${sep}<div class="bprow${x.scoringPlay ? ' scp' : ''}${isSpot ? ' spot' : ''}${tg[1] === 'meta' ? ' meta' : ''}" style="--tc:${c}"><span class="clk">${esc(perLbl(ev, x._per))}<br>${esc((x.clock && x.clock.displayValue) || '')}</span><span class="tx">${tg[0] ? `<span class="ptag ${tg[1]}">${esc(tg[0])}</span>` : ''}${boldNames(x.text, allRe, spot && spot.re)}</span>${sc}</div>`;
+    return `${here}${sep}<div class="bprow${x.scoringPlay ? ' scp' : ''}${isSpot ? ' spot' : ''}${tg[1] === 'meta' ? ' meta' : ''}" style="--tc:${c};${isSpot ? spotStyle(spot, x.text) : ''}"><span class="clk">${esc(perLbl(ev, x._per))}<br>${esc((x.clock && x.clock.displayValue) || '')}</span><span class="tx">${tg[0] ? `<span class="ptag ${tg[1]}">${esc(tg[0])}</span>` : ''}${boldNames(x.text, allRe, spot)}</span>${sc}</div>`;
   }).join('');
   html += spotBar(s, ev, p, 'hoops');
   html += `<div><div class="row" style="margin-bottom:6px"><span class="lbl">Play-by-play</span><div class="chips sm" style="margin:0">${pchip('all', 'All')}${pchip('score', 'Scoring')}${hasMine ? pchip('mine', '★ Mine') : ''}</div></div>
