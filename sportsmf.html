@@ -515,7 +515,7 @@ const TEAM_LGS = LEAGUES.filter(l => l.type === 'team');
 const COLLEGE_LGS = LEAGUES.filter(l => l.college);
 const BOOKS = ['DraftKings','FanDuel','Bet365','BetMGM','Fanatics','Hard Rock','theScore','BetRivers','betPARX','Caesars','ESPN BET'];
 const BOOK_MAP = {draftkings:'DraftKings', fanduel:'FanDuel', betmgm:'BetMGM', caesars:'Caesars', espnbet:'ESPN BET', bet365:'Bet365', fanatics:'Fanatics', hardrock:'Hard Rock', hardrockbet:'Hard Rock', betrivers:'BetRivers', thescore:'theScore', betparx:'betPARX'};
-const BUILD = '2026-11-20 v53';
+const BUILD = '2026-11-20 v54';
 /* The Call Sheet lives on the same site (jibboo72.github.io), so its saved
    data and its published odds file are both readable from here. */
 const CS_KEY = 'nfl-call-sheet-v3';
@@ -2543,9 +2543,8 @@ function hoopsTag(x){
   if (/miss/.test(t) && x.shootingPlay !== false && !/free throw/.test(ty)) return [/three point/.test(t) ? '3 ✕' : '✕', 'miss'];
   if (/offensive rebound/.test(ty + ' ' + t)) return ['OREB', 'reb'];
   if (/rebound/.test(ty + ' ' + t)) return ['REB', 'reb'];
-  if (/steal/.test(t)) return ['STL', 'to'];
-  if (/turnover|traveling|bad pass|lost ball|offensive foul|3 second|shot clock/.test(ty + ' ' + t)) return ['TO', 'to'];
-  if (/block/.test(t)) return ['BLK', 'to'];
+  if (/turnover|traveling|bad pass|lost ball|offensive foul|3 second|shot clock|steal/.test(ty + ' ' + t)) return ['TO', 'to'];
+  if (/block/.test(t)) return ['✕', 'miss'];
   if (/foul/.test(ty + ' ' + t)) return ['FOUL', 'foul'];
   if (/timeout/.test(ty + ' ' + t)) return ['T/O', 'meta'];
   if (/enters the game|substitution/.test(ty + ' ' + t)) return ['SUB', 'meta'];
@@ -2583,7 +2582,7 @@ function hoopsSpotLine(s, nm){
     (c.athletes || []).forEach(a => {
       if (!a.athlete || a.athlete.displayName !== nm || !(a.stats || []).length) return;
       const g = k => { const i = up.indexOf(k); return i >= 0 ? a.stats[i] : null; };
-      line = [[g('PTS'), 'PTS'], [g('REB'), 'REB'], [g('AST'), 'AST'], [g('3PT'), '3PT'], [g('STL'), 'STL'], [g('BLK'), 'BLK'], [g('FG'), 'FG'], [g('MIN'), 'MIN']].filter(v => v[0] !== null && v[0] !== '' && v[0] !== '--');
+      line = [[g('PTS'), 'PTS'], [g('REB'), 'REB'], [g('AST'), 'AST'], [g('3PT'), '3PT'], [g('FG'), 'FG'], [g('MIN'), 'MIN']].filter(v => v[0] !== null && v[0] !== '' && v[0] !== '--');
     });
   }));
   return line;
