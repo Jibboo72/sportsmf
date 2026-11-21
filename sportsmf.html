@@ -515,7 +515,7 @@ const TEAM_LGS = LEAGUES.filter(l => l.type === 'team');
 const COLLEGE_LGS = LEAGUES.filter(l => l.college);
 const BOOKS = ['DraftKings','FanDuel','Bet365','BetMGM','Fanatics','Hard Rock','theScore','BetRivers','betPARX','Caesars','ESPN BET'];
 const BOOK_MAP = {draftkings:'DraftKings', fanduel:'FanDuel', betmgm:'BetMGM', caesars:'Caesars', espnbet:'ESPN BET', bet365:'Bet365', fanatics:'Fanatics', hardrock:'Hard Rock', hardrockbet:'Hard Rock', betrivers:'BetRivers', thescore:'theScore', betparx:'betPARX'};
-const BUILD = '2026-11-20 v52';
+const BUILD = '2026-11-20 v53';
 /* The Call Sheet lives on the same site (jibboo72.github.io), so its saved
    data and its published odds file are both readable from here. */
 const CS_KEY = 'nfl-call-sheet-v3';
@@ -2391,6 +2391,7 @@ function driveTeam(dv, ev){
   return t || (dv && dv.team ? {abbr: dv.team.abbreviation, logo: (dv.team.logos && dv.team.logos[0] && dv.team.logos[0].href) || ''} : null);
 }
 function fieldTab(s, ev, p){
+  spotRestore(ev, p);
   const dr = s.drives || {};
   const prev = dr.previous || [], cur = dr.current || null;
   const all = prev.concat(cur && !prev.some(x => x.id === cur.id) ? [cur] : []);
@@ -2632,6 +2633,21 @@ function fbSpotLine(s, nm){
   return parts.length ? parts : null;
 }
 /* ---------- shared pieces ---------- */
+/* the spotlighted player (and "only his plays") is remembered per game, so
+   coming back to the game picks up where you were */
+const SPOT_KEY = 'spots';
+function spotRestore(ev, p){
+  if (p.spot !== undefined) return;
+  const v = store.get(SPOT_KEY, {})[ev.lg + ':' + ev.id];
+  p.spot = v ? v.n : null; p.spOnly = !!(v && v.o);
+}
+function spotSet(ev, name, only){
+  const m = store.get(SPOT_KEY, {}), k = ev.lg + ':' + ev.id;
+  if (name) m[k] = {n: name, o: !!only, at: Date.now()}; else delete m[k];
+  const ks = Object.keys(m); if (ks.length > 60) ks.sort((a, b) => (m[a].at || 0) - (m[b].at || 0)).slice(0, ks.length - 60).forEach(x => delete m[x]);
+  store.set(SPOT_KEY, m);
+  setP({spot: name || null, spOnly: !!only});
+}
 function spotPlayers(s, ev){
   const roster = rosterOf(s), hit = betNames(ev);
   const mine = roster.filter(r => hit({displayName: r.name}));
@@ -2647,13 +2663,13 @@ function spotBar(s, ev, p, sport){
     ['away', 'home'].forEach(sd => roster.filter(r => r.team === String(ev[sd].id)).sort((a, b) => pts(b.name) - pts(a.name)).slice(0, 2).forEach(r => lead.push(r)));
   }
   const chips = [...new Map(mine.concat(lead).map(r => [r.name, r])).values()].slice(0, 8);
-  const chip = r => `<button class="chip ${sp === r.name ? 'on' : ''}" data-h="${h(() => setP({spot: sp === r.name ? null : r.name, spOnly: false}))}">${mine.includes(r) ? '★ ' : ''}${esc(boxName({displayName: r.name}))}</button>`;
+  const chip = r => `<button class="chip ${sp === r.name ? 'on' : ''}" data-h="${h(() => spotSet(ev, sp === r.name ? null : r.name, false))}">${mine.includes(r) ? '★ ' : ''}${esc(boxName({displayName: r.name}))}</button>`;
   let html = `<div class="spotbar"><div class="row" style="margin-bottom:6px"><span class="lbl">Spotlight a player</span><button class="linkbtn" data-h="${h(() => pickSpot(s, ev, p))}">All players ›</button></div><div class="chips sm scrollx" style="margin:0">${chips.map(chip).join('')}</div>`;
   if (sp){
     const ln = sport === 'hoops' ? hoopsSpotLine(s, sp) : fbSpotLine(s, sp);
     const r = roster.find(x => x.name === sp), tm = r && (String(ev.home.id) === r.team ? ev.home : String(ev.away.id) === r.team ? ev.away : null);
     const pb = betsFor(ev).filter(b => b.type === 'prop' && nameAliases(sp).some(a => String(b.pick).toLowerCase().includes(a.toLowerCase()))).map(b => { const pr = propRead(b, ev, s); return pr ? `<span class="spprop ${pr.cls}">${esc(b.pick.replace(sp, '').trim())}: ${esc(pr.text)}</span>` : ''; }).join('');
-    html += `<div class="spotline"><div class="sphd">${tm && tm.logo ? logo(tm.logo) : ''}<b>${esc(sp)}</b>${r && r.pos ? `<span class="sub">${esc(r.pos)}</span>` : ''}<label class="sponly"><input type="checkbox" ${p.spOnly ? 'checked' : ''} data-h="${h(() => setP({spOnly: !p.spOnly}))}"> Only his plays</label></div>
+    html += `<div class="spotline"><div class="sphd">${tm && tm.logo ? logo(tm.logo) : ''}<b>${esc(sp)}</b>${r && r.pos ? `<span class="sub">${esc(r.pos)}</span>` : ''}<label class="sponly"><input type="checkbox" ${p.spOnly ? 'checked' : ''} data-h="${h(() => spotSet(ev, sp, !p.spOnly))}"> Only his plays</label></div>
       <div class="spstats">${ln ? (sport === 'hoops' ? ln.map(v => `<span><b>${esc(v[0])}</b>${esc(v[1])}</span>`).join('') : ln.map(v => `<span><b>${esc(v[0])}</b>${esc(v[1])}</span>`).join('')) : '<span class="sub">No stats yet</span>'}</div>${pb ? `<div class="spprops">${pb}</div>` : ''}</div>`;
   }
   return html + '</div>';
@@ -2663,7 +2679,7 @@ function pickSpot(s, ev, p){
   const grp = sd => { const t = ev[sd]; const ps = roster.filter(r => r.team === String(t.id)); return ps.length ? `<div class="lbl" style="margin:10px 0 6px">${esc(t.short || t.abbr)}</div><div class="spgrid">${ps.map(r => `<button class="chip" data-spot="${esc(r.name)}">${esc(boxName({displayName: r.name}))}${r.pos ? ` <small>${esc(r.pos)}</small>` : ''}</button>`).join('')}</div>` : ''; };
   openSheet(`<div class="lbl">Spotlight a player</div>${grp('away')}${grp('home')}<button class="ghost" id="closeSheetBtn" style="margin-top:12px">Close</button>`);
   $('#closeSheetBtn').onclick = closeSheet;
-  $('#sheetBody').querySelectorAll('[data-spot]').forEach(b => b.onclick = () => { closeSheet(); setP({spot: b.dataset.spot, spOnly: false}); });
+  $('#sheetBody').querySelectorAll('[data-spot]').forEach(b => b.onclick = () => { closeSheet(); spotSet(ev, b.dataset.spot, false); });
 }
 function spotMatcher(p, s){
   if (!p.spot) return null;
@@ -2870,6 +2886,7 @@ function hoopsPropBars(ev, s){
   return rows.length ? `<div><div class="lbl" style="margin-bottom:6px">Your props</div><div class="pbars">${rows.join('')}</div></div>` : '';
 }
 function courtTab(s, ev, p){
+  spotRestore(ev, p);
   const plays = hoopsPlays(s);
   if (!plays.length) return `<div class="empty">${ev.state === 'pre' ? 'The court view starts at tip-off.' : 'No plays yet.'}</div>`;
   const live = ev.state === 'in';
