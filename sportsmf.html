@@ -285,7 +285,7 @@ mark.spotnm{background:#FFD54A;color:#111;border-radius:4px;padding:0 3px;font-w
 .spotline{border:1.5px solid var(--sc,#FFD54A);border-left-width:6px;border-radius:12px;padding:6px 10px}
 .spotline.mini{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 8px;padding:4px 8px}
 .spotline.mini .nm{font:800 14px var(--body);white-space:nowrap}.spotline.mini .st{font:600 13px var(--body);color:var(--muted);flex:1;min-width:0}.spotline.mini .st b{color:var(--ink);font:900 15px var(--disp)}
-.spotline.mini .spprops{flex-basis:100%;margin-top:0}.spotline.mini .spprop{font-size:12px}
+.spotline.mini .spprops,.spotline.mini .spst{flex-basis:100%;margin-top:0}.spotline.mini .spprop{font-size:12px}
 .spotlines:has(.mini){gap:4px}
 .spx{margin-left:auto;background:none;border:0;color:var(--muted);font-size:16px;cursor:pointer;padding:0 2px}
 .chip.spotchip{background:var(--sc)!important;color:#111!important;border-color:var(--sc)!important}
@@ -450,6 +450,17 @@ textarea{padding:10px 12px;min-height:110px;font-size:14px}
 .toggle{display:flex;justify-content:space-between;align-items:center;min-height:56px;gap:10px;border-bottom:1px solid var(--line);font:600 17px var(--body)}
 .toggle button{width:64px;height:36px;border-radius:18px;border:1.5px solid var(--silver);background:var(--soft);font:700 13px var(--body)}
 .toggle button.on{background:var(--blue);border-color:var(--blue);color:#fff}
+.pbar .psub{font:500 13px/1.3 var(--body);color:var(--muted);margin-top:4px;display:flex;flex-wrap:wrap;gap:4px 6px;align-items:center}
+.pbar .psub b{color:var(--ink)}
+.pbar .track{position:relative}
+.pbar .track em.proj{position:absolute;top:-3px;bottom:-3px;width:2px;margin-left:-1px;background:var(--ink);opacity:.55;border-radius:1px}
+.crt{font:700 12px var(--body);padding:1px 7px;border-radius:999px;background:var(--soft);color:var(--muted)}
+.crt.on{background:var(--green-bg);color:var(--green-t)}
+.pf{font:700 12px var(--body);color:var(--muted)}
+.pf.bad{color:var(--red)}
+.spst{font:500 13px/1.35 var(--body);margin-top:5px;display:flex;flex-wrap:wrap;gap:4px 6px;align-items:center}
+.catchup{font:500 13px/1.35 var(--body);color:var(--ink);background:var(--soft);border-left:3px solid var(--blue);border-radius:8px;padding:5px 8px;margin-top:6px}
+.catchup .cuh{color:var(--blue);font-weight:700}
 </style>
 </head>
 <body>
@@ -522,7 +533,7 @@ const TEAM_LGS = LEAGUES.filter(l => l.type === 'team');
 const COLLEGE_LGS = LEAGUES.filter(l => l.college);
 const BOOKS = ['DraftKings','FanDuel','Bet365','BetMGM','Fanatics','Hard Rock','theScore','BetRivers','betPARX','Caesars','ESPN BET'];
 const BOOK_MAP = {draftkings:'DraftKings', fanduel:'FanDuel', betmgm:'BetMGM', caesars:'Caesars', espnbet:'ESPN BET', bet365:'Bet365', fanatics:'Fanatics', hardrock:'Hard Rock', hardrockbet:'Hard Rock', betrivers:'BetRivers', thescore:'theScore', betparx:'betPARX'};
-const BUILD = '2026-11-20 v57';
+const BUILD = '2026-11-20 v58';
 /* The Call Sheet lives on the same site (jibboo72.github.io), so its saved
    data and its published odds file are both readable from here. */
 const CS_KEY = 'nfl-call-sheet-v3';
@@ -1242,7 +1253,8 @@ function betState(b, ev, s){
   return {cls: '', text: ev.state === 'in' ? 'In play' : (b.cs ? 'Final · grade in Call Sheet' : 'Final · tap to grade')};
 }
 function betBand(b, ev, tag, onTap, s){
-  const st = betState(b, ev, s);
+  let st = betState(b, ev, s);
+  if (b.type === 'prop' && b.status === 'open' && ev && ev.state === 'in' && s){ const pc = propPace(b, ev, s); if (pc) st = Object.assign({}, st, {text: `${st.text} · proj ${paceNum(pc.proj, pc.small)}`}); }
   const odds = b.odds !== null && b.odds !== undefined ? ' ' + fmtOdds(b.odds) : '';
   const inner = `<b>${esc(b.pick)}${esc(odds)}</b><span class="st">${esc(st.text)}</span>`;
   return tag === 'button'
@@ -1478,7 +1490,8 @@ function gameCard(ev, ctx){
     return `<div class="tm">${logo(t.logo)}<span class="nm"><span data-h="${h(() => go('team', {lg: ev.lg, id: t.id, t: tsnap(t)}))}">${t.rank ? `<span class="rk">${t.rank}</span>` : ''}${esc(t.short)}</span>${mark(t)}${poss(t)}</span>${teamInfo(ev, t, side)}${right}</div>`;
   };
   const sit = ev.state === 'in' ? sitText(ev) : '';
-  const bands = bs.slice(0, 3).map(b => betBand(b, ev, null, null, ev._s)).join('') + (bs.length > 3 ? `<div class="bband"><span>+${bs.length - 3} more bets</span></div>` : '');
+  const cu = catchUp(ev);
+  const bands = (cu ? `<div class="catchup">${cu}</div>` : '') + bs.slice(0, 3).map(b => betBand(b, ev, null, null, ev._s)).join('') + (bs.length > 3 ? `<div class="bband"><span>+${bs.length - 3} more bets</span></div>` : '');
   return `<button class="card" data-h="${h(() => go('game', {lg: ev.lg, path: ev.path, id: ev.id}))}">
     <div class="meta"><span>${esc(LG[ev.lg].short)}</span><span class="r">${statusText(ev)}</span></div>
     ${row(ev.away, ev.home, ev.odds.awayML, 'away')}
@@ -1486,6 +1499,23 @@ function gameCard(ev, ctx){
     <div class="foot"><span class="ln" style="${sit ? 'color:var(--ink)' : ''}">${sit ? esc(sit) : (!ev.odds.details && x.line !== null ? esc(`${(x.line <= 0 ? ev.home : ev.away).abbr || ''} ${Math.abs(x.line) < 0.05 ? 'PK' : '-' + Math.abs(x.line)}${x.total !== null ? ' · O/U ' + x.total : ''}`) : linesText(ev))}</span><span class="rt">${x.wind ? `<span class="wx" title="${x.wind} mph wind forecast">${WIND_SVG}${x.wind}</span>` : ''}${x.edge ? `<span class="edg" title="Your power ratings differ from the line by ${x.edge.n.toFixed(1)} points">◆ ${x.edge.n.toFixed(1)} edge</span>` : ''}${tag}</span></div>
     ${bands}
   </button>`;
+}
+/* "Since you looked" on a Tonight card: the score swing and prop gains since
+   your last visit to that game's tracker. Reading it here doesn't move the
+   marker; opening the game does. */
+function catchUp(ev){
+  if (ev.state === 'pre') return '';
+  const m = seenGet(ev); if (!m || Date.now() - m.at < 90000) return '';
+  const hs = +ev.home.score || 0, as = +ev.away.score || 0, dh = hs - (m.hs || 0), da = as - (m.as || 0);
+  if (dh < 0 || da < 0 || (dh === 0 && da === 0)) return '';
+  const run = dh === da ? `Even ${dh}-${da}` : `${esc((dh > da ? ev.home : ev.away).abbr)} ${Math.max(dh, da)}-${Math.min(dh, da)} run`;
+  const props = ev._s ? betsFor(ev).filter(b => b.type === 'prop' && m.props && m.props[b.id] !== undefined).map(b => {
+    const pr = propRead(b, ev, ev._s); if (!pr || pr.val === undefined) return '';
+    const g = pr.val - m.props[b.id]; if (g <= 0) return '';
+    const who = (String(b.pick).match(/^([A-Za-z.'\-]+(?: [A-Za-z.'\-]+)*?)\s+(?:o|u|over|under|\d)/i) || [])[1] || '';
+    return `<b>${esc(who.split(' ').pop() || 'Prop')}</b> +${g}${pr.stat ? ' ' + esc(pr.stat) : ''}`;
+  }).filter(Boolean) : [];
+  return `<span class="cuh">Since you looked · ${agoMin(m.at)} ago</span> ${run}${props.length ? ' · ' + props.join(' · ') : ''}`;
 }
 /* Scoreboard extras: the line (always read from the home team, the bottom
    row), the total, a wind marker for 15+ mph forecasts, and a flag when
@@ -2441,7 +2471,8 @@ function fieldTab(s, ev, p){
   html += `<div>${fieldSvg({ball, togo: live && isCur ? togo : null, start, offAbbr, defAbbr, offCol: colOf(off, offAbbr), defCol: colOf(def, defAbbr), rz: live && isCur && !!si.isRedZone, dd: ddShort})}</div>`;
   const roster = rosterOf(s), allRe = nameRegex(roster.map(r => r.name)), spot = spotMatcher(p, s);
   const flat = []; all.forEach((d2, di) => (d2.plays || []).filter(x => x && x.text).forEach(x => flat.push({x, di})));
-  const since = sinceMarker(ev, p, flat.length, {d: all.length});
+  const propNowF = {}; betsFor(ev).filter(b => b.type === 'prop').forEach(b => { const pr = propRead(b, ev, s); if (pr && pr.val !== undefined) propNowF[b.id] = pr.val; });
+  const since = sinceMarker(ev, p, flat.length, {d: all.length, props: propNowF});
   const seenSet2 = since ? new Set(flat.slice(0, since.n).map(f2 => f2.x)) : null;
   if (since && p.drive === undefined){
     const newDr = all.slice(Math.max(0, since.d - 1));
@@ -2639,6 +2670,73 @@ function fbSpotLine(s, nm){
   }));
   return parts.length ? parts : null;
 }
+/* On the floor or on the bench, read from the play log: a starter begins on
+   the floor; "X enters the game for Y" puts X on and Y off; any other play
+   naming a player means he's out there. Fouls come from the box score. */
+function hoopsBoxRow(s, test){
+  let out = null;
+  ((s && s.boxscore && s.boxscore.players) || []).forEach(tg => (tg.statistics || []).forEach(c => {
+    const up = (c.labels || c.names || []).map(l => String(l).toUpperCase());
+    (c.athletes || []).forEach(a => { if (a.athlete && test(a.athlete.displayName)) out = {name: a.athlete.displayName, starter: !!a.starter, pf: (i => i >= 0 ? parseFloat((a.stats || [])[i]) : NaN)(up.indexOf('PF')), dnp: !!a.didNotPlay}; });
+  }));
+  return out;
+}
+function hoopsCourt(s, ev, nm){
+  if (!s || !/basketball/.test(ev.path || '')) return null;
+  const row = hoopsBoxRow(s, n => n === nm); if (!row) return null;
+  const re = nameRegex([nm]); if (!re) return null;
+  const hit = t => { re.lastIndex = 0; return re.test(t); };
+  let on = row.starter, off = null;
+  hoopsPlays(s).forEach(x => {
+    const t = String(x.text || ''), m = t.match(/^(.+?) enters the game for (.+?)\.?$/);
+    if (m){ if (hit(' ' + m[1] + ' ')) { on = true; off = null; } else if (hit(' ' + m[2] + ' ')) { on = false; off = {per: x._per, clk: (x.clock && x.clock.displayValue) || ''}; } return; }
+    if (/end of|start of|timeout/i.test(t)) return;
+    if (hit(t)){ on = true; off = null; }
+  });
+  const limit = ev.lg === 'cbb' ? 5 : 6, pf = isNaN(row.pf) ? null : row.pf;
+  const last = hoopsPlays(s).slice(-1)[0], per = last ? last._per : 1;
+  const trouble = pf !== null && (pf >= limit - 1 || (ev.lg === 'cbb' ? (per === 1 && pf >= 3) : ((per === 1 && pf >= 2) || (per === 2 && pf >= 3) || (per === 3 && pf >= 4))));
+  const status = ev.state !== 'in' ? '' : pf !== null && pf >= limit ? 'Fouled out' : on ? 'On court' : off ? `Bench since ${perLbl(ev, off.per)} ${off.clk}` : 'On the bench';
+  return {on: ev.state === 'in' && on && !(pf >= limit), status, pf, trouble, out: pf !== null && pf >= limit};
+}
+/* the court line for the player a prop names */
+function courtFor(s, ev, pick){
+  if (!s || !/basketball/.test(ev.path || '')) return null;
+  const t = ' ' + String(pick || '').toLowerCase() + ' ';
+  const r = rosterOf(s).find(x => { const nm = x.name.toLowerCase().replace(/\b(jr|sr|ii|iii|iv)\b\.?/g, '').trim(); const last = nm.split(' ').pop(); return t.includes(nm) || (last.length >= 4 && new RegExp('[^a-z]' + reEsc(last) + '[^a-z]').test(t)); });
+  return r ? hoopsCourt(s, ev, r.name) : null;
+}
+function courtBits(c){
+  if (!c) return '';
+  const st = c.status ? `<span class="crt ${c.on ? 'on' : 'off'}">${esc(c.status)}</span>` : '';
+  const pf = c.pf !== null && !c.out ? `<span class="pf${c.trouble ? ' bad' : ''}">${c.pf} PF</span>` : '';
+  return [st, pf].filter(Boolean).join(' ');
+}
+/* Football usage: touches (carries + catches), targets, and red-zone
+   touches (runs or catches that started inside the 20). */
+function fbUsage(s, nm){
+  if (!s) return null;
+  const test = n => n === nm;
+  const car = boxStat(s, a => test(a && a.displayName), 'rushing', 'CAR'), rec = boxStat(s, a => test(a && a.displayName), 'receiving', 'REC'), tgt = boxStat(s, a => test(a && a.displayName), 'receiving', 'TGTS');
+  if (car === null && rec === null && tgt === null) return null;
+  const re = nameRegex([nm]); let rz = 0;
+  const dr = s.drives || {}, all = (dr.previous || []).concat(dr.current && !(dr.previous || []).some(x => x.id === dr.current.id) ? [dr.current] : []);
+  all.forEach(d => (d.plays || []).forEach(x => {
+    const st = x.start || {}, y = st.yardsToEndzone;
+    if (y === undefined || y === null || +y > 20 || !re) return;
+    const t = String(x.text || ''), ty = String((x.type && x.type.text) || '').toLowerCase();
+    if (/no play|penalty|kneel|incomplete|sacked|spike/i.test(t) || /penalty|timeout|kickoff|punt|field goal|extra point/.test(ty)) return;
+    /* the ball carrier is the first name in a run; the catcher follows "to" in a pass */
+    const pm = t.match(/\bpass\b.*? to (.+?)(?= for | to the | to [A-Z]{2,4} \d|\.? *$|, )/);
+    const seg = pm ? pm[1] : (/pass/i.test(ty + t) ? '' : t.split(/ (?:run|rush|up the middle|left|right|for|scrambles)\b/)[0]);
+    re.lastIndex = 0; if (seg && re.test(' ' + seg + ' ')) rz++;
+  }));
+  return {touch: (car || 0) + (rec || 0), tgt, rz};
+}
+function fbUsageText(u){
+  if (!u) return '';
+  return [`${u.touch} touch${u.touch === 1 ? '' : 'es'}`, u.tgt !== null ? `${u.tgt} tgt` : '', `${u.rz} RZ`].filter(Boolean).join(' · ');
+}
 /* ---------- shared pieces ---------- */
 /* Spotlight up to four players at once, each in its own color. The picks
    (and "only their plays") are remembered per game. */
@@ -2686,16 +2784,21 @@ function spotBar(s, ev, p, sport){
     sel.forEach(nm => {
       const ln = sport === 'hoops' ? hoopsSpotLine(s, nm) : fbSpotLine(s, nm);
       const r = roster.find(x => x.name === nm), tm = r && (String(ev.home.id) === r.team ? ev.home : String(ev.away.id) === r.team ? ev.away : null);
-      const pb = betsFor(ev).filter(b => b.type === 'prop' && nameAliases(nm).some(a => String(b.pick).toLowerCase().includes(a.toLowerCase()))).map(b => { const pr = propRead(b, ev, s); return pr ? `<span class="spprop ${pr.cls}">${esc(b.pick.replace(nm, '').trim())}: ${esc(pr.text)}</span>` : ''; }).join('');
+      const pb = betsFor(ev).filter(b => b.type === 'prop' && nameAliases(nm).some(a => String(b.pick).toLowerCase().includes(a.toLowerCase()))).map(b => { const pr = propRead(b, ev, s); const pc = pr && propPace(b, ev, s, pr); return pr ? `<span class="spprop ${pr.cls}">${esc(b.pick.replace(nm, '').trim())}: ${esc(pr.text)}${pc ? ` · proj ${paceNum(pc.proj, pc.small)}` : ''}</span>` : ''; }).join('');
+      /* status line: court/fouls (hoops) or usage (football), plus straight-line points pace when there's no prop on him */
+      const cst = sport === 'hoops' ? hoopsCourt(s, ev, nm) : null;
+      const ptsV = sport === 'hoops' && ln ? (ln.find(v => v[1] === 'PTS') || [])[0] : null, e2 = 1 - fracLeft(ev);
+      const paceTxt = !pb && sport === 'hoops' && ev.state === 'in' && ptsV !== null && ptsV !== undefined && e2 >= 0.25 ? `On pace for ${Math.round(+ptsV / e2)} pts` : '';
+      const stLine = [sport === 'hoops' ? courtBits(cst) : esc(fbUsageText(fbUsage(s, nm))), paceTxt ? esc(paceTxt) : ''].filter(Boolean).join(' <span class="sub">·</span> ');
       if (sel.length > 1){
         const keep = sport === 'hoops' ? ['PTS', 'REB', 'AST', '3PT'] : null;
         const stats = ln ? (keep ? ln.filter(v => keep.includes(v[1])).map(v => `<b>${esc(v[0])}</b> ${esc(v[1])}`) : ln.map(v => `<b>${esc(v[0])}</b>`)).join(' · ') : 'No stats yet';
         const pr1 = pb ? pb.replace(/<span class="spprop ([^"]*)">[^:]*: /g, '<span class="spprop $1">') : '';
-        html += `<div class="spotline mini" style="--sc:${colorOf(nm)}"><b class="nm">${esc(boxName({displayName: nm}))}</b><span class="st">${stats}</span><button class="spx" aria-label="Remove ${esc(nm)}" data-h="${h(() => spotToggle(ev, p, nm))}">✕</button>${pr1 ? `<div class="spprops">${pr1}</div>` : ''}</div>`;
+        html += `<div class="spotline mini" style="--sc:${colorOf(nm)}"><b class="nm">${esc(boxName({displayName: nm}))}</b><span class="st">${stats}</span><button class="spx" aria-label="Remove ${esc(nm)}" data-h="${h(() => spotToggle(ev, p, nm))}">✕</button>${stLine ? `<div class="spst">${stLine}</div>` : ''}${pr1 ? `<div class="spprops">${pr1}</div>` : ''}</div>`;
         return;
       }
       html += `<div class="spotline" style="--sc:${colorOf(nm)}"><div class="sphd">${tm && tm.logo ? logo(tm.logo) : ''}<b>${esc(sel.length > 1 ? boxName({displayName: nm}) : nm)}</b>${r && r.pos ? `<span class="sub">${esc(r.pos)}</span>` : ''}<button class="spx" aria-label="Remove ${esc(nm)}" data-h="${h(() => spotToggle(ev, p, nm))}">✕</button></div>
-        <div class="spstats">${ln ? ln.map(v => `<span><b>${esc(v[0])}</b>${esc(v[1])}</span>`).join('') : '<span class="sub">No stats yet</span>'}</div>${pb ? `<div class="spprops">${pb}</div>` : ''}</div>`;
+        <div class="spstats">${ln ? ln.map(v => `<span><b>${esc(v[0])}</b>${esc(v[1])}</span>`).join('') : '<span class="sub">No stats yet</span>'}</div>${stLine ? `<div class="spst">${stLine}</div>` : ''}${pb ? `<div class="spprops">${pb}</div>` : ''}</div>`;
     });
     html += '</div>';
   }
@@ -2917,7 +3020,10 @@ function hoopsPropBars(ev, s){
     const need = r.side === 'over' ? Math.floor(r.line) + 1 : r.line;
     const pct = Math.max(2, Math.min(100, (r.val / (need || 1)) * 100));
     const col = r.cls === 'up' ? 'var(--green-t)' : r.cls === 'down' ? 'var(--red)' : 'var(--blue)';
-    return `<div class="pbar"><div class="row"><b>${esc(b.pick)}</b><span style="color:${col};font-weight:800">${esc(r.text)}</span></div><div class="track"><i style="width:${pct}%;background:${col}"></i>${r.side === 'over' ? '' : '<span class="cap"></span>'}</div></div>`;
+    const pc = propPace(b, ev, s, r), cs = courtFor(s, ev, b.pick);
+    const projPct = pc ? Math.max(0, Math.min(100, (pc.proj / (need || 1)) * 100)) : null;
+    const sub = [pc ? `Projects <b>${paceNum(pc.proj, pc.small)}</b>${pc.raw !== null ? ` · straight pace ${paceNum(pc.raw, pc.small)}` : ''}` : '', cs ? courtBits(cs) : ''].filter(Boolean).join(' · ');
+    return `<div class="pbar"><div class="row"><b>${esc(b.pick)}</b><span style="color:${col};font-weight:800">${esc(r.text)}</span></div><div class="track"><i style="width:${pct}%;background:${col}"></i>${projPct !== null && projPct > pct ? `<em class="proj" style="left:${projPct}%"></em>` : ''}${r.side === 'over' ? '' : '<span class="cap"></span>'}</div>${sub ? `<div class="psub">${sub}</div>` : ''}</div>`;
   }).filter(Boolean);
   return rows.length ? `<div><div class="lbl" style="margin-bottom:6px">Your props</div><div class="pbars">${rows.join('')}</div></div>` : '';
 }
@@ -3660,6 +3766,41 @@ function poisMeanFor(line, p){
   for (let i = 0; i < 40; i++){ const m = (lo + hi) / 2; if (poisTail(m, k) < p) lo = m; else hi = m; }
   return (lo + hi) / 2;
 }
+/* ---------- pace projection ----------
+   Straight-line pace (stat ÷ share of game played) swings wildly early: 4
+   points after one quarter reads as "on pace for 16". The projection keeps
+   what the player already has and adds the time left at a blended rate:
+     rate = w × (his pace so far) + (1 − w) × (pregame expectation)
+     w    = played ÷ (played + 1)   → 0.2 after a quarter, 0.33 at the half, 0.43 after three
+     proj = now + time left × rate
+   The pregame expectation is the full-game average implied by the line and
+   the price you got (cut removed): a Poisson mean for count stats, a normal
+   mean (spread 38% of the line) for yardage and points. The same rate drives
+   the live cash chance, so the projection and the % always agree. */
+const PACE_K = 1;
+function propMu0(b, pr, ev){
+  const pPre = fairChance(b.odds), side = pr.side || 'over';
+  const pc = Math.max(0.03, Math.min(0.97, pPre === null ? 0.5 : (side === 'over' ? pPre : 1 - pPre)));
+  const line = +pr.line, st = String(pr.stat || '');
+  const counts = PROP_COUNTS.includes(st) || (st === 'pts' && /hockey/.test(ev.path || ''));
+  return counts ? poisMeanFor(line, pc) : Math.max(0, line + invNorm(pc) * Math.max(1, 0.38 * line));
+}
+function paceRate(val, e, mu0){
+  if (mu0 === null || mu0 === undefined) return e > 0.02 ? val / e : null;
+  if (e <= 0.02) return mu0;
+  const w = e / (e + PACE_K);
+  return w * (val / e) + (1 - w) * mu0;
+}
+/* {proj, raw}: projected final and straight-line pace for a live, undecided prop */
+function propPace(b, ev, s, pr){
+  pr = pr || propRead(b, ev, s);
+  if (!pr || ev.state !== 'in' || pr.val === undefined || pr.line === null || pr.line === undefined || pr.stat === 'long') return null;
+  if (pr.cls === 'up' || pr.cls === 'down') return null;
+  const f = fracLeft(ev), e = 1 - f, val = +pr.val;
+  const proj = val + f * paceRate(val, e, propMu0(b, pr, ev));
+  return {proj, raw: e >= 0.15 ? val / e : null, small: propMu0(b, pr, ev) < 10};
+}
+const paceNum = (x, small) => small ? String(Math.round(x * 10) / 10) : String(Math.round(x));
 const PROP_COUNTS = ['rec', 'SOG', 'G', 'A', 'reb', 'ast', '3PM', 'stl', 'blk', 'hits', 'blocks', 'pass TD'];
 function propChance(b, ev, s, f, pPre){
   const pr = propRead(b, ev, s);
@@ -3681,10 +3822,11 @@ function propChance(b, ev, s, f, pPre){
   if (counts){
     const need = Math.floor(line) + 1 - val;
     const mu = poisMeanFor(line, Math.max(0.03, Math.min(0.97, pOverPre)));
-    pOver = need <= 0 ? 1 : poisTail(Math.max(0.005, mu * f), need);
+    pOver = need <= 0 ? 1 : poisTail(Math.max(0.005, paceRate(val, 1 - f, mu) * f), need);
   } else {
     const sdFull = Math.max(1, 0.38 * line), muFull = line + invNorm(Math.max(0.03, Math.min(0.97, pOverPre))) * sdFull;
-    pOver = 1 - phi((line - val - muFull * f) / Math.max(0.5, sdFull * Math.sqrt(f)));
+    const rate = st2 === 'long' ? muFull : paceRate(val, 1 - f, muFull);
+    pOver = 1 - phi((line - val - rate * f) / Math.max(0.5, sdFull * Math.sqrt(f)));
   }
   /* props follow the box score, so the pregame price fades faster than on sides */
   pOver = blendLive(pOver, pOverPre, f, 0.7);
