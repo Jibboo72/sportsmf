@@ -264,6 +264,29 @@ button.lb{width:100%;border-left:0;border-right:0;border-top:0;background:none;t
 .bprow .sc{font:700 15px var(--disp);font-variant-numeric:tabular-nums;color:var(--muted);white-space:nowrap}
 .bprow .sc .hi{color:var(--ink);font-weight:900}
 .persep{font:800 12px var(--disp);letter-spacing:.8px;color:var(--muted);text-align:center;padding:8px 0;border-bottom:1px solid var(--line);text-transform:uppercase}
+.ballb{display:inline-flex;align-items:center;gap:6px;font:900 15px/1 var(--disp);letter-spacing:.6px;text-transform:uppercase;padding:5px 10px 5px 6px;border-radius:999px}
+.ballb img{width:20px;height:20px;background:#fff;border-radius:50%;padding:1px}
+.ballb::after{content:'\25C0';font-size:11px;margin-left:2px;opacity:.85}
+.since{border:1.5px solid var(--blue);background:color-mix(in srgb,var(--blue) 8%,transparent);border-radius:14px;padding:10px 12px;display:flex;flex-direction:column;gap:5px;font:600 15px/1.35 var(--body)}
+.since .sbig{font:800 20px var(--disp);letter-spacing:.3px}.since .sbig b{font-weight:900}
+.since .sprops{display:flex;flex-direction:column;gap:2px;font-size:14px;border-top:1px solid var(--line);padding-top:5px}
+.sdrives{display:flex;flex-wrap:wrap;gap:4px}
+.herebar{margin:6px 0;padding:6px 10px;border-radius:8px;background:var(--blue);color:#fff;font:800 12px var(--disp);letter-spacing:.8px;text-transform:uppercase;text-align:center}
+.ptag{display:inline-block;min-width:34px;text-align:center;font:900 11px/1 var(--disp);letter-spacing:.5px;padding:3px 5px 2px;border-radius:5px;margin-right:6px;vertical-align:1px;background:var(--soft);color:var(--muted)}
+.ptag.three,.ptag.two{background:color-mix(in srgb,var(--green-t) 18%,transparent);color:var(--green-t)}.ptag.ft{background:var(--soft);color:var(--green-t)}
+.ptag.td{background:var(--green-t);color:#0D0F12}.ptag.to{background:color-mix(in srgb,var(--red) 16%,transparent);color:var(--red)}
+.ptag.reb{background:color-mix(in srgb,var(--blue) 16%,transparent);color:var(--blue)}.ptag.foul{background:color-mix(in srgb,#E0A100 18%,transparent);color:#C48A00}
+.bprow.meta .tx{color:var(--muted);font-size:14px}
+.bprow .tx b,.prow2 b{font-weight:800}
+.bprow.spot,.prow2.spot{background:color-mix(in srgb,#FFD54A 22%,transparent);border-radius:8px}
+mark.spotnm{background:#FFD54A;color:#111;border-radius:4px;padding:0 3px;font-weight:800}
+.spotbar{position:sticky;top:40px;z-index:2;background:var(--bg);padding:6px 0;border-bottom:1px solid var(--line)}
+.spotline{margin-top:8px;border:1.5px solid #FFD54A;border-radius:12px;padding:8px 10px}
+.sphd{display:flex;align-items:center;gap:8px;font:800 17px var(--body)}.sphd img{width:22px;height:22px}
+.sponly{margin-left:auto;font:600 13px var(--body);color:var(--muted);display:flex;align-items:center;gap:4px;white-space:nowrap}
+.spstats{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:4px;font:600 13px var(--body);color:var(--muted)}.spstats b{font:900 18px var(--disp);color:var(--ink);margin-right:3px}
+.spprops{display:flex;flex-direction:column;gap:2px;margin-top:4px}.spprop{font:700 13px var(--body)}.spprop.up{color:var(--green-t)}.spprop.down{color:var(--red)}
+.spgrid{display:flex;flex-wrap:wrap;gap:6px}
 .lastp{border-left:3px solid var(--blue);padding:4px 0 4px 10px;font:600 16px/1.35 var(--body)}
 .prow2{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:start;padding:8px 2px;border-bottom:1px solid var(--line)}
 .prow2 .dn{font:800 15px/1 var(--disp);letter-spacing:.3px;color:var(--ink);background:var(--soft);border:1px solid var(--line);border-radius:7px;padding:5px 7px 4px;white-space:nowrap;min-width:58px;text-align:center;margin-top:1px}
@@ -492,7 +515,7 @@ const TEAM_LGS = LEAGUES.filter(l => l.type === 'team');
 const COLLEGE_LGS = LEAGUES.filter(l => l.college);
 const BOOKS = ['DraftKings','FanDuel','Bet365','BetMGM','Fanatics','Hard Rock','theScore','BetRivers','betPARX','Caesars','ESPN BET'];
 const BOOK_MAP = {draftkings:'DraftKings', fanduel:'FanDuel', betmgm:'BetMGM', caesars:'Caesars', espnbet:'ESPN BET', bet365:'Bet365', fanatics:'Fanatics', hardrock:'Hard Rock', hardrockbet:'Hard Rock', betrivers:'BetRivers', thescore:'theScore', betparx:'betPARX'};
-const BUILD = '2026-11-08 v50';
+const BUILD = '2026-11-20 v51';
 /* The Call Sheet lives on the same site (jibboo72.github.io), so its saved
    data and its published odds file are both readable from here. */
 const CS_KEY = 'nfl-call-sheet-v3';
@@ -2349,7 +2372,8 @@ function fieldSvg(o){
   g += `<path d="M${W - EZ - 16} ${H - 30} l9 5 -9 5" fill="none" stroke="rgba(255,255,255,.9)" stroke-width="2"/>`;
   return `<svg class="fieldsvg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Field: ${esc(o.offAbbr || '')} driving">${g}</svg>`;
 }
-function playRows(plays, ev){
+function playRows(plays, ev, o){
+  o = o || {};
   return plays.slice().reverse().map(x => {
     const st = x.start || {};
     const dn = st.shortDownDistanceText || (st.down ? `${st.down} & ${st.distance}` : '');
@@ -2357,7 +2381,9 @@ function playRows(plays, ev){
     const special = /kickoff|punt|field goal|extra point|timeout|penalty|end of|two-minute/i.test(ty);
     const y = x.statYardage;
     const yd = y === undefined || y === null || special ? '' : `<span class="yd" style="color:${y > 0 ? 'var(--green-t)' : y < 0 ? 'var(--red)' : 'var(--muted)'}">${y > 0 ? '+' : ''}${y}</span>`;
-    return `<div class="prow2" style="${x.scoringPlay ? 'background:var(--green-bg);border-radius:10px;padding-left:8px;padding-right:8px' : ''}"><span class="dn">${esc(dn.replace(/&amp;/g, '&')) || esc(ty)}</span><span style="font:500 15px/1.35 var(--body)">${esc(x.text || '')}</span>${yd}</div>`;
+    const tg = fbTag(x), isSpot = o.spot && o.spot.test(x.text);
+    const here = o.here && o.here(x) ? `<div class="herebar">You were here · ${agoMin(o.sinceAt)} ago</div>` : '';
+    return `${here}<div class="prow2${isSpot ? ' spot' : ''}" style="${x.scoringPlay ? 'background:var(--green-bg);border-radius:10px;padding-left:8px;padding-right:8px' : ''}"><span class="dn">${esc(dn.replace(/&amp;/g, '&')) || esc(ty)}</span><span style="font:500 15px/1.35 var(--body)">${tg[0] ? `<span class="ptag ${tg[1]}">${esc(tg[0])}</span>` : ''}${boldNames(x.text || '', o.re, o.spot && o.spot.re)}</span>${yd}</div>`;
   }).join('');
 }
 function driveTeam(dv, ev){
@@ -2396,6 +2422,8 @@ function fieldTab(s, ev, p){
     const dd = si.downDistanceText || si.shortDownDistanceText || '';
     const parts = String(dd).split(' at ');
     const to = (n, tm) => `<span>${esc(tm.abbr || tm.short)} ${[0, 1, 2].map(i => `<i class="${i < n ? 'on' : ''}"></i>`).join('')}</span>`;
+    const offSd = off === ev.home || (off && off.abbr === ev.home.abbr) ? 'home' : off === ev.away || (off && off.abbr === ev.away.abbr) ? 'away' : null;
+    if (offSd) html += `<div>${ballBadge(ev, offSd, 'ball')}</div>`;
     html += `<div class="fsit"><div><div class="dd">${esc(parts[0] || dd || '—')}${si.isRedZone ? '<span class="rz">RED ZONE</span>' : ''}</div><div class="at">${parts[1] ? 'at ' + esc(parts[1]) + ' · ' : ''}${esc(offAbbr)} ball</div></div>
       <div class="to">${si.awayTimeouts !== undefined ? to(+si.awayTimeouts, ev.away) : ''}${si.homeTimeouts !== undefined ? to(+si.homeTimeouts, ev.home) : ''}</div></div>`;
   }
@@ -2403,16 +2431,42 @@ function fieldTab(s, ev, p){
   /* colors: scoreboard team first, then any drive's team object (summary drives carry color too) */
   const colOf = (t, ab) => (t && t.color) || ((all.find(x => x.team && x.team.abbreviation === ab) || {}).team || {}).color || '';
   html += `<div>${fieldSvg({ball, togo: live && isCur ? togo : null, start, offAbbr, defAbbr, offCol: colOf(off, offAbbr), defCol: colOf(def, defAbbr), rz: live && isCur && !!si.isRedZone, dd: ddShort})}</div>`;
+  const roster = rosterOf(s), allRe = nameRegex(roster.map(r => r.name)), spot = spotMatcher(p, s);
+  const flat = []; all.forEach((d2, di) => (d2.plays || []).filter(x => x && x.text).forEach(x => flat.push({x, di})));
+  const since = sinceMarker(ev, p, flat.length, {d: all.length});
+  const seenSet2 = since ? new Set(flat.slice(0, since.n).map(f2 => f2.x)) : null;
+  if (since && p.drive === undefined){
+    const newDr = all.slice(Math.max(0, since.d - 1));
+    const RES2 = r => /touchdown|^td$/i.test(r) ? 'up' : /field goal|^fg$/i.test(r) ? 'up' : /interception|fumble|int|downs|safety|missed|blocked/i.test(r) ? 'down' : 'even';
+    html += `<div class="since"><div class="row"><span class="lbl">Since you last looked · ${agoMin(since.at)} ago</span><button class="linkbtn" data-h="${h(() => { p._since = null; render(true); })}">Got it</button></div>
+      <div class="sbig">${esc(ev.away.abbr)} ${since.as} – ${since.hs} ${esc(ev.home.abbr)} <span class="sub">→</span> <b>${esc(ev.away.score)} – ${esc(ev.home.score)}</b></div>
+      <div class="sdrives">${newDr.map((d2, k) => { const t = driveTeam(d2, ev), r = d2.shortDisplayResult || d2.displayResult || d2.result || (k === newDr.length - 1 && live ? 'Driving' : ''); return `<span class="tag ${RES2(r)}">${esc((t && (t.abbr || t.short)) || '')} ${esc(r)}</span>`; }).join(' ')}</div>
+      <div class="sub">${flat.length - since.n} new plays${newDr.length ? ` · ${newDr.length} drive${newDr.length > 1 ? 's' : ''}` : ''}</div></div>`;
+  }
   const lp = live && isCur && si.lastPlay && si.lastPlay.text ? si.lastPlay.text : (lastP && lastP.text);
   if (lp) html += `<div class="lastp"><span class="lbl" style="display:block">${live && isCur ? 'Last play' : (dv.displayResult || dv.result || 'Drive result')}</span>${esc(lp)}</div>`;
   /* this drive */
   const meta = [dv.description, dv.start && dv.start.period && dv.start.period.number ? 'Q' + dv.start.period.number : ''].filter(Boolean).join(' · ');
-  html += `<div><div class="lbl" style="margin-bottom:2px">${esc(offAbbr)} drive${meta ? ' · ' + esc(meta) : ''}${dv.shortDisplayResult ? ' · ' + esc(dv.shortDisplayResult) : ''}</div>${playRows(plays, ev) || '<div class="empty" style="padding:10px">No plays yet.</div>'}</div>`;
+  html += `<div><div class="lbl" style="margin-bottom:2px">${esc(offAbbr)} drive${meta ? ' · ' + esc(meta) : ''}${dv.shortDisplayResult ? ' · ' + esc(dv.shortDisplayResult) : ''}</div>${playRows(plays, ev, {re: allRe, spot}) || '<div class="empty" style="padding:10px">No plays yet.</div>'}</div>`;
   /* win probability */
   const wpA = s.winprobability || [];
   if (wpA.length && ev.state !== 'post'){
     const hw = Math.round((wpA[wpA.length - 1].homeWinPercentage || 0) * 100);
     html += `<div><div class="lbl">Win probability</div><div class="wp"><div style="width:${100 - hw}%"></div></div><div class="row" style="margin-top:6px;font:600 15px var(--body)"><span>${esc(ev.away.abbr)} ${100 - hw}%</span><span>${esc(ev.home.abbr)} ${hw}%</span></div></div>`;
+  }
+  /* the whole game, play by play, with the spotlight */
+  html += spotBar(s, ev, p, 'fb');
+  {
+    let fl = flat;
+    if (spot && p.spOnly) fl = fl.filter(f2 => spot.test(f2.x.text));
+    const n = p.pn || Math.min(200, Math.max(30, since ? flat.length - since.n + 4 : 30));
+    const shown = fl.slice(-n);
+    let out = '', lastDi = null;
+    shown.slice().reverse().forEach(f2 => {
+      if (f2.di !== lastDi){ const t = driveTeam(all[f2.di], ev), d2 = all[f2.di]; out += `<div class="persep" style="text-align:left">${esc((t && (t.abbr || t.short)) || '')} drive${d2.shortDisplayResult ? ' · ' + esc(d2.shortDisplayResult) : ''}${d2.description ? ' · ' + esc(d2.description) : ''}</div>`; lastDi = f2.di; }
+      out += playRows([f2.x], ev, {re: allRe, spot, here: x => seenSet2 && flat[since.n - 1] && flat[since.n - 1].x === x, sinceAt: since && since.at});
+    });
+    html += `<div><div class="lbl" style="margin-bottom:2px">Play-by-play</div>${out || '<div class="empty" style="padding:10px">Nothing here yet.</div>'}${fl.length > n ? `<button class="linkbtn" style="margin-top:8px" data-h="${h(() => setP({pn: n + 60}))}">Show ${Math.min(60, fl.length - n)} more</button>` : ''}</div>`;
   }
   /* every drive */
   const RES = r => /touchdown|^td$/i.test(r) ? 'up' : /field goal|^fg$/i.test(r) ? 'up' : /interception|fumble|int|downs|safety|missed|blocked/i.test(r) ? 'down' : 'even';
@@ -2421,6 +2475,205 @@ function fieldTab(s, ev, p){
     return `<button class="drow" style="${i === sel ? 'background:var(--soft);border-radius:10px;padding-left:8px;padding-right:8px' : ''}" data-h="${h(() => { setP({drive: i === all.length - 1 && live ? undefined : i}); $('#view').scrollTop = 0; })}">${t && t.logo ? logo(t.logo) : '<span class="ph"></span>'}<span class="main" style="display:flex;flex-direction:column;min-width:0"><span style="font:700 15px var(--body)">${esc((t && (t.abbr || t.short)) || '')}${x.start && x.start.text ? ' · from ' + esc(x.start.text) : ''}</span><span class="sub">${esc(x.description || '')}</span></span>${r ? `<span class="tag ${RES(r)}">${esc(r)}</span>` : ''}</button>`;
   }).join('') + '</div>';
   return html;
+}
+
+/* ================= LIVE TRACKING: CATCH-UP, BALL, PLAY TAGS, SPOTLIGHT =================
+   Built for checking in on a game every so often:
+   - "Since you last looked": what changed since your last visit to this game
+     (score swing, runs, drives, the hot player, your props), plus a marker
+     in the play-by-play where you left off.
+   - Who has the ball: football from ESPN's live situation, basketball worked
+     out from the last plays (made shot, rebound, turnover, steal).
+   - Play tags and bold player names so a long log reads at a glance.
+   - Spotlight: tap a player and every play he's in lights up, with his live
+     line pinned on top; "only his plays" filters to them. */
+const SEEN_KEY = 'seen2';
+function seenGet(ev){ const m = store.get(SEEN_KEY, {}); return m[ev.lg + ':' + ev.id] || null; }
+function seenSet(ev, v){
+  const m = store.get(SEEN_KEY, {}); m[ev.lg + ':' + ev.id] = v;
+  const ks = Object.keys(m); if (ks.length > 60) ks.sort((a, b) => (m[a].at || 0) - (m[b].at || 0)).slice(0, ks.length - 60).forEach(k => delete m[k]);
+  store.set(SEEN_KEY, m);
+}
+/* the marker from your previous visit stays put for this whole visit; the
+   stored marker keeps moving so the next visit starts from where you left */
+function sinceMarker(ev, p, count, extra){
+  if (ev.state === 'pre') return null;
+  if (p._since === undefined){
+    const prev = seenGet(ev);
+    p._since = prev && prev.n < count && Date.now() - prev.at > 90000 ? prev : null;
+  }
+  seenSet(ev, Object.assign({n: count, at: Date.now(), hs: +ev.home.score || 0, as: +ev.away.score || 0}, extra || {}));
+  return p._since;
+}
+const agoMin = ts => { const m = Math.max(1, Math.round((Date.now() - ts) / 60000)); return m < 60 ? `${m} min` : `${Math.floor(m / 60)} hr ${m % 60 ? (m % 60) + ' min' : ''}`.trim(); };
+/* ---------- names ---------- */
+function rosterOf(s){
+  const out = [];
+  ((s && s.boxscore && s.boxscore.players) || []).forEach(tg => (tg.statistics || []).forEach(c => (c.athletes || []).forEach(a => {
+    const at = a.athlete || {}; if (!at.displayName || out.some(x => x.name === at.displayName)) return;
+    out.push({id: String(at.id || at.displayName), name: at.displayName, team: tg.team && String(tg.team.id), pos: at.position && at.position.abbreviation, head: at.headshot && at.headshot.href});
+  })));
+  return out;
+}
+/* ways a play log writes a name: "Jared Goff", "J.Goff", "J. Goff" */
+function nameAliases(nm){
+  const clean = String(nm || '').replace(/\s+(jr|sr|ii|iii|iv|v)\.?$/i, '').trim();
+  const w = clean.split(/\s+/); if (w.length < 2) return [clean];
+  const rest = w.slice(1).join(' ');
+  return [...new Set([clean, `${w[0][0]}.${rest}`, `${w[0][0]}. ${rest}`, `${w[0][0]}.${rest.replace(/\s+/g, '')}`])];
+}
+function nameRegex(names){
+  const al = []; names.forEach(n => nameAliases(n).forEach(a => { if (a.length >= 4) al.push(a); }));
+  if (!al.length) return null;
+  al.sort((a, b) => b.length - a.length);
+  return new RegExp('(^|[^A-Za-z])(' + al.map(reEsc).join('|') + ')(?![a-z])', 'g');
+}
+function boldNames(text, re, spotRe){
+  let t = esc(text);
+  if (spotRe) t = t.replace(spotRe, (m0, pre, nm) => `${pre}\u0001${nm}\u0002`);
+  if (re) t = t.replace(re, (m0, pre, nm) => /\u0001/.test(pre) ? m0 : `${pre}<b>${nm}</b>`);
+  return t.replace(/\u0001([^\u0002]*)\u0002/g, '<mark class="spotnm">$1</mark>');
+}
+/* ---------- basketball ---------- */
+function hoopsTag(x){
+  const ty = String((x.type && x.type.text) || '').toLowerCase(), t = String(x.text || '').toLowerCase();
+  if (x.scoringPlay) return /free throw/.test(ty + t) ? ['+1', 'ft'] : (+x.scoreValue === 3 || /three point/.test(t)) ? ['+3', 'three'] : ['+2', 'two'];
+  if (/free throw/.test(ty) && /miss/.test(t)) return ['FT ✕', 'miss'];
+  if (/miss/.test(t) && x.shootingPlay !== false && !/free throw/.test(ty)) return [/three point/.test(t) ? '3 ✕' : '✕', 'miss'];
+  if (/offensive rebound/.test(ty + ' ' + t)) return ['OREB', 'reb'];
+  if (/rebound/.test(ty + ' ' + t)) return ['REB', 'reb'];
+  if (/steal/.test(t)) return ['STL', 'to'];
+  if (/turnover|traveling|bad pass|lost ball|offensive foul|3 second|shot clock/.test(ty + ' ' + t)) return ['TO', 'to'];
+  if (/block/.test(t)) return ['BLK', 'to'];
+  if (/foul/.test(ty + ' ' + t)) return ['FOUL', 'foul'];
+  if (/timeout/.test(ty + ' ' + t)) return ['T/O', 'meta'];
+  if (/enters the game|substitution/.test(ty + ' ' + t)) return ['SUB', 'meta'];
+  if (/jump ball/.test(ty + ' ' + t)) return ['JUMP', 'meta'];
+  if (/end of|start of|period/.test(ty + ' ' + t)) return ['', 'meta'];
+  return ['', ''];
+}
+/* who has the ball, read backwards from the last plays */
+function hoopsBall(ev, plays){
+  for (let i = plays.length - 1; i >= Math.max(0, plays.length - 8); i--){
+    const x = plays[i], sd = playSide(x, ev), ty = String((x.type && x.type.text) || '').toLowerCase(), t = String(x.text || '').toLowerCase();
+    const other = sd === 'home' ? 'away' : sd === 'away' ? 'home' : null;
+    if (/end of|end period|start of/.test(ty + ' ' + t)) return null;
+    if (/jump ball/.test(ty + t)) return null;
+    if (/timeout|enters the game|substitution/.test(ty + ' ' + t)) continue;
+    if (/defensive rebound/.test(ty + ' ' + t)) return sd;
+    if (/offensive rebound/.test(ty + ' ' + t)) return sd;
+    if (/rebound/.test(ty + ' ' + t)) return sd;
+    if (/steal/.test(t)) return /steal/.test(t) && /turnover|lost ball|bad pass/.test(ty + t) ? other : sd;
+    if (/turnover|traveling|bad pass|lost ball|offensive foul|shot clock/.test(ty + ' ' + t)) return other;
+    if (/free throw/.test(ty)){
+      const m = t.match(/(\d) of (\d)/);
+      if (m && m[1] === m[2]) return x.scoringPlay ? other : null;
+      return sd;
+    }
+    if (x.scoringPlay) return other;
+    if (/miss/.test(t)) return null;
+  }
+  return null;
+}
+function hoopsSpotLine(s, nm){
+  let line = null;
+  ((s.boxscore && s.boxscore.players) || []).forEach(tg => (tg.statistics || []).forEach(c => {
+    const up = (c.labels || c.names || []).map(l => String(l).toUpperCase());
+    (c.athletes || []).forEach(a => {
+      if (!a.athlete || a.athlete.displayName !== nm || !(a.stats || []).length) return;
+      const g = k => { const i = up.indexOf(k); return i >= 0 ? a.stats[i] : null; };
+      line = [[g('PTS'), 'PTS'], [g('REB'), 'REB'], [g('AST'), 'AST'], [g('3PT'), '3PT'], [g('STL'), 'STL'], [g('BLK'), 'BLK'], [g('FG'), 'FG'], [g('MIN'), 'MIN']].filter(v => v[0] !== null && v[0] !== '' && v[0] !== '--');
+    });
+  }));
+  return line;
+}
+/* points scored in a span of plays, by player (the scorer is named first) */
+function hoopsSpanScorers(plays, roster){
+  const pts = {};
+  plays.forEach(x => {
+    if (!x.scoringPlay) return;
+    const nm = (roster.find(r => String(x.text || '').startsWith(r.name)) || {}).name;
+    if (nm) pts[nm] = (pts[nm] || 0) + (+x.scoreValue || 0);
+  });
+  return Object.entries(pts).sort((a, b) => b[1] - a[1]);
+}
+/* ---------- football ---------- */
+function fbTag(x){
+  const ty = String((x.type && (x.type.text || x.type.abbreviation)) || '').toLowerCase(), t = String(x.text || '').toLowerCase();
+  if (x.scoringPlay && /touchdown/.test(ty + t)) return ['TD', 'td'];
+  if (/field goal/.test(ty) && x.scoringPlay) return ['FG', 'td'];
+  if (/field goal/.test(ty)) return ['FG ✕', 'to'];
+  if (/extra point|two-point|2pt/.test(ty + t)) return [x.scoringPlay ? 'XP' : 'XP ✕', x.scoringPlay ? 'td' : 'to'];
+  if (/interception|intercepted/.test(ty + t)) return ['INT', 'to'];
+  if (/fumble/.test(ty + t) && /recovered by/.test(t) && !/recovered by [^ ]+ [^ ]*\s*\(?same/.test(t)) return ['FUM', 'to'];
+  if (/sack/.test(ty + t)) return ['SACK', 'to'];
+  if (/penalty/.test(ty) || /^penalty/.test(t)) return ['FLAG', 'foul'];
+  if (/punt/.test(ty)) return ['PUNT', 'meta'];
+  if (/kickoff/.test(ty)) return ['KICK', 'meta'];
+  if (/timeout/.test(ty + t)) return ['T/O', 'meta'];
+  if (/pass/.test(ty) && /incomplete/.test(t)) return ['INC', 'miss'];
+  if (/pass/.test(ty + t)) return ['PASS', 'two'];
+  if (/rush|run/.test(ty) || /\b(up the middle|left end|right end|left tackle|right tackle|left guard|right guard)\b/.test(t)) return ['RUN', 'two'];
+  return ['', ''];
+}
+function fbSpotLine(s, nm){
+  const parts = [];
+  ((s.boxscore && s.boxscore.players) || []).forEach(tg => (tg.statistics || []).forEach(c => {
+    const up = (c.labels || c.names || []).map(l => String(l).toUpperCase());
+    (c.athletes || []).forEach(a => {
+      if (!a.athlete || a.athlete.displayName !== nm) return;
+      const g = k => { const i = up.indexOf(k); return i >= 0 ? a.stats[i] : null; };
+      if (c.name === 'passing') parts.push([`${g('C/ATT')}, ${g('YDS')} yds`, `${g('TD')} TD${+g('INT') ? ', ' + g('INT') + ' INT' : ''}`]);
+      if (c.name === 'rushing') parts.push([`${g('CAR')} car, ${g('YDS')} yds`, +g('TD') ? `${g('TD')} TD` : 'rush']);
+      if (c.name === 'receiving') parts.push([`${g('REC')} rec, ${g('YDS')} yds`, `${+g('TD') ? g('TD') + ' TD, ' : ''}${g('TGTS') !== null ? g('TGTS') + ' tgt' : 'rec'}`]);
+      if (c.name === 'defensive') parts.push([`${g('TOT')} tkl`, `${+g('SACKS') ? g('SACKS') + ' sk' : 'defense'}`]);
+    });
+  }));
+  return parts.length ? parts : null;
+}
+/* ---------- shared pieces ---------- */
+function spotPlayers(s, ev){
+  const roster = rosterOf(s), hit = betNames(ev);
+  const mine = roster.filter(r => hit({displayName: r.name}));
+  return {roster, mine};
+}
+function spotBar(s, ev, p, sport){
+  const {roster, mine} = spotPlayers(s, ev);
+  if (!roster.length) return '';
+  const sp = p.spot && roster.find(r => r.name === p.spot) ? p.spot : null;
+  const lead = [];
+  if (sport === 'hoops'){
+    const pts = n => { const l = hoopsSpotLine(s, n); const v = l && l.find(x => x[1] === 'PTS'); return v ? +v[0] || 0 : 0; };
+    ['away', 'home'].forEach(sd => roster.filter(r => r.team === String(ev[sd].id)).sort((a, b) => pts(b.name) - pts(a.name)).slice(0, 2).forEach(r => lead.push(r)));
+  }
+  const chips = [...new Map(mine.concat(lead).map(r => [r.name, r])).values()].slice(0, 8);
+  const chip = r => `<button class="chip ${sp === r.name ? 'on' : ''}" data-h="${h(() => setP({spot: sp === r.name ? null : r.name, spOnly: false}))}">${mine.includes(r) ? '★ ' : ''}${esc(boxName({displayName: r.name}))}</button>`;
+  let html = `<div class="spotbar"><div class="row" style="margin-bottom:6px"><span class="lbl">Spotlight a player</span><button class="linkbtn" data-h="${h(() => pickSpot(s, ev, p))}">All players ›</button></div><div class="chips sm scrollx" style="margin:0">${chips.map(chip).join('')}</div>`;
+  if (sp){
+    const ln = sport === 'hoops' ? hoopsSpotLine(s, sp) : fbSpotLine(s, sp);
+    const r = roster.find(x => x.name === sp), tm = r && (String(ev.home.id) === r.team ? ev.home : String(ev.away.id) === r.team ? ev.away : null);
+    const pb = betsFor(ev).filter(b => b.type === 'prop' && nameAliases(sp).some(a => String(b.pick).toLowerCase().includes(a.toLowerCase()))).map(b => { const pr = propRead(b, ev, s); return pr ? `<span class="spprop ${pr.cls}">${esc(b.pick.replace(sp, '').trim())}: ${esc(pr.text)}</span>` : ''; }).join('');
+    html += `<div class="spotline"><div class="sphd">${tm && tm.logo ? logo(tm.logo) : ''}<b>${esc(sp)}</b>${r && r.pos ? `<span class="sub">${esc(r.pos)}</span>` : ''}<label class="sponly"><input type="checkbox" ${p.spOnly ? 'checked' : ''} data-h="${h(() => setP({spOnly: !p.spOnly}))}"> Only his plays</label></div>
+      <div class="spstats">${ln ? (sport === 'hoops' ? ln.map(v => `<span><b>${esc(v[0])}</b>${esc(v[1])}</span>`).join('') : ln.map(v => `<span><b>${esc(v[0])}</b>${esc(v[1])}</span>`).join('')) : '<span class="sub">No stats yet</span>'}</div>${pb ? `<div class="spprops">${pb}</div>` : ''}</div>`;
+  }
+  return html + '</div>';
+}
+function pickSpot(s, ev, p){
+  const roster = rosterOf(s);
+  const grp = sd => { const t = ev[sd]; const ps = roster.filter(r => r.team === String(t.id)); return ps.length ? `<div class="lbl" style="margin:10px 0 6px">${esc(t.short || t.abbr)}</div><div class="spgrid">${ps.map(r => `<button class="chip" data-spot="${esc(r.name)}">${esc(boxName({displayName: r.name}))}${r.pos ? ` <small>${esc(r.pos)}</small>` : ''}</button>`).join('')}</div>` : ''; };
+  openSheet(`<div class="lbl">Spotlight a player</div>${grp('away')}${grp('home')}<button class="ghost" id="closeSheetBtn" style="margin-top:12px">Close</button>`);
+  $('#closeSheetBtn').onclick = closeSheet;
+  $('#sheetBody').querySelectorAll('[data-spot]').forEach(b => b.onclick = () => { closeSheet(); setP({spot: b.dataset.spot, spOnly: false}); });
+}
+function spotMatcher(p, s){
+  if (!p.spot) return null;
+  const re = nameRegex([p.spot]); if (!re) return null;
+  return {re, test: t => { re.lastIndex = 0; return re.test(String(t || '')); }};
+}
+function ballBadge(ev, sd, label){
+  if (!sd) return '';
+  const t = ev[sd], c = teamCol(t, sd === 'home' ? '#3A9BDC' : '#E8833A');
+  return `<span class="ballb" style="background:${c};color:${inkOn(c)}">${t.logo ? logo(t.logo) : ''}${esc(t.abbr || t.short)} ${esc(label || 'ball')}</span>`;
 }
 
 /* ================= BASKETBALL COURT TRACKER =================
@@ -2629,10 +2882,30 @@ function courtTab(s, ev, p){
   /* situation */
   const leadTxt = m === 0 ? 'Tied' : `${esc((m > 0 ? ev.home : ev.away).abbr)} ${live ? 'leads' : 'won'} by ${Math.abs(m)}`;
   const runTxt = flow.run ? `<span class="run" style="background:${teamCol(ev[flow.run.side], '#3A9BDC')};color:${inkOn(teamCol(ev[flow.run.side], '#3A9BDC'))}">${esc(ev[flow.run.side].abbr)} ${flow.run.f}-${flow.run.o} run</span>` : '';
+  const ballSd = live ? hoopsBall(ev, plays) : null;
   html += `<div class="bsit"><div class="top"><span class="clk">${live ? esc(perLbl(ev, curPer) + ' · ' + (last.clock && last.clock.displayValue || '')) : esc(ev.detail || 'Final')}</span>${runTxt}</div>
+    ${ballSd ? `<div style="margin:2px 0">${ballBadge(ev, ballSd)}</div>` : ''}
     <div class="lead">${leadTxt}</div>
     <div class="facts">${flow.changes} lead change${flow.changes === 1 ? '' : 's'} · ${flow.ties} tie${flow.ties === 1 ? '' : 's'} · Biggest lead ${esc(ev.home.abbr)} ${flow.big.home}, ${esc(ev.away.abbr)} ${flow.big.away}</div></div>`;
   if (last && last.text) html += `<div class="lastp"><span class="lbl" style="display:block">${live ? 'Last play' : 'Final play'}</span>${esc(last.text)}</div>`;
+  /* since you last looked */
+  const roster = rosterOf(s);
+  const propNow = {}; betsFor(ev).filter(b => b.type === 'prop').forEach(b => { const pr = propRead(b, ev, s); if (pr && pr.val !== undefined) propNow[b.id] = pr.val; });
+  const since = sinceMarker(ev, p, plays.length, {props: propNow});
+  if (since){
+    const span = plays.slice(since.n);
+    const dh = hs - since.hs, da = as - since.as;
+    const ptsBy = hoopsSpanScorers(span, roster).slice(0, 2);
+    const fp = flow.pts.filter(x => x.t >= hoopsElapsed(ev, (plays[since.n] || last)._per, (plays[since.n] || last).clock));
+    let ch = 0, prevLd = Math.sign(since.hs - since.as); fp.forEach(x => { const l2 = Math.sign(x.h - x.a); if (l2 && prevLd && l2 !== prevLd) ch++; if (l2) prevLd = l2; });
+    const lead = (sd, d1, d2) => d1 === d2 ? `Even ${d1}-${d2}` : `${esc(ev[d1 > d2 ? sd : (sd === 'home' ? 'away' : 'home')].abbr)} outscored ${esc(ev[d1 > d2 ? (sd === 'home' ? 'away' : 'home') : sd].abbr)} ${Math.max(d1, d2)}-${Math.min(d1, d2)}`;
+    const props = betsFor(ev).filter(b => b.type === 'prop' && propNow[b.id] !== undefined).map(b => { const was = (since.props || {})[b.id]; const pr = propRead(b, ev, s); return `<div>${esc(b.pick)}: ${was !== undefined && propNow[b.id] - was > 0 ? `<b class="pos">+${propNow[b.id] - was}</b> · ` : ''}${esc(pr ? pr.text : '')}</div>`; }).join('');
+    html += `<div class="since"><div class="row"><span class="lbl">Since you last looked · ${agoMin(since.at)} ago</span><button class="linkbtn" data-h="${h(() => { p._since = null; render(true); })}">Got it</button></div>
+      <div class="sbig">${esc(ev.away.abbr)} ${since.as} – ${since.hs} ${esc(ev.home.abbr)} <span class="sub">→</span> <b>${as} – ${hs}</b></div>
+      <div>${lead('home', dh, da)}${ch ? ` · ${ch} lead change${ch > 1 ? 's' : ''}` : ''}${span.length ? ` · ${span.length} plays` : ''}</div>
+      ${ptsBy.length ? `<div>Hot: ${ptsBy.map(([n, v]) => `<b>${esc(boxName({displayName: n}))}</b> ${v} pts`).join(', ')}</div>` : ''}
+      ${props ? `<div class="sprops">${props}</div>` : ''}</div>`;
+  }
   html += hoopsPropBars(ev, s);
   /* shot chart */
   const sl = shotList(ev, plays);
@@ -2660,7 +2933,10 @@ function courtTab(s, ev, p){
   /* play by play */
   const f = ['all', 'score', 'mine'].includes(p.pf) ? p.pf : 'all';
   const hit = betNames(ev), hasMine = betsFor(ev).some(b => b.type === 'prop');
+  plays.forEach((x, i) => { x._i = i; });
+  const allRe = nameRegex(roster.map(r => r.name)), spot = spotMatcher(p, s);
   let list = plays.filter(x => x.text);
+  if (spot && p.spOnly) list = list.filter(x => spot.test(x.text));
   if (f === 'score') list = list.filter(x => x.scoringPlay);
   if (f === 'mine'){
     /* players from the box score that your props name, by full name */
@@ -2670,7 +2946,7 @@ function courtTab(s, ev, p){
     })));
     list = list.filter(x => { const t = String(x.text).toLowerCase(); return mineN.some(nm => nm && t.includes(nm)); });
   }
-  const n = p.pn || 25, shown = list.slice(-n).reverse();
+  const n = p.pn || Math.min(150, Math.max(25, since ? plays.length - since.n + 4 : 25)), shown = list.slice(-n).reverse();
   const pchip = (k, l) => `<button class="chip ${f === k ? 'on' : ''}" data-h="${h(() => setP({pf: k, pn: 25}))}">${l}</button>`;
   let perPrev = null;
   const rows = shown.map(x => {
@@ -2678,8 +2954,11 @@ function courtTab(s, ev, p){
     const sep = perPrev !== null && x._per !== perPrev ? `<div class="persep">${esc(perLbl(ev, perPrev))} ↑ · ${esc(perLbl(ev, x._per))} ↓</div>` : '';
     perPrev = x._per;
     const sc = x.scoringPlay ? `<span class="sc"><b class="${sd === 'away' ? 'hi' : ''}">${esc(x.awayScore)}</b>-<b class="${sd === 'home' ? 'hi' : ''}">${esc(x.homeScore)}</b></span>` : '<span class="sc"></span>';
-    return `${sep}<div class="bprow${x.scoringPlay ? ' scp' : ''}" style="--tc:${c}"><span class="clk">${esc(perLbl(ev, x._per))}<br>${esc((x.clock && x.clock.displayValue) || '')}</span><span class="tx">${esc(x.text)}</span>${sc}</div>`;
+    const tg = hoopsTag(x), isSpot = spot && spot.test(x.text);
+    const here = since && x._i === since.n - 1 ? `<div class="herebar">You were here · ${agoMin(since.at)} ago</div>` : '';
+    return `${here}${sep}<div class="bprow${x.scoringPlay ? ' scp' : ''}${isSpot ? ' spot' : ''}${tg[1] === 'meta' ? ' meta' : ''}" style="--tc:${c}"><span class="clk">${esc(perLbl(ev, x._per))}<br>${esc((x.clock && x.clock.displayValue) || '')}</span><span class="tx">${tg[0] ? `<span class="ptag ${tg[1]}">${esc(tg[0])}</span>` : ''}${boldNames(x.text, allRe, spot && spot.re)}</span>${sc}</div>`;
   }).join('');
+  html += spotBar(s, ev, p, 'hoops');
   html += `<div><div class="row" style="margin-bottom:6px"><span class="lbl">Play-by-play</span><div class="chips sm" style="margin:0">${pchip('all', 'All')}${pchip('score', 'Scoring')}${hasMine ? pchip('mine', '★ Mine') : ''}</div></div>
     ${rows || '<div class="empty" style="padding:10px">Nothing here yet.</div>'}
     ${list.length > n ? `<button class="linkbtn" style="margin-top:8px" data-h="${h(() => setP({pn: n + 50}))}">Show ${Math.min(50, list.length - n)} more</button>` : ''}</div>`;
