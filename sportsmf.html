@@ -536,7 +536,7 @@ const TEAM_LGS = LEAGUES.filter(l => l.type === 'team');
 const COLLEGE_LGS = LEAGUES.filter(l => l.college);
 const BOOKS = ['DraftKings','FanDuel','Bet365','BetMGM','Fanatics','Hard Rock','theScore','BetRivers','betPARX','Caesars','ESPN BET'];
 const BOOK_MAP = {draftkings:'DraftKings', fanduel:'FanDuel', betmgm:'BetMGM', caesars:'Caesars', espnbet:'ESPN BET', bet365:'Bet365', fanatics:'Fanatics', hardrock:'Hard Rock', hardrockbet:'Hard Rock', betrivers:'BetRivers', thescore:'theScore', betparx:'betPARX'};
-const BUILD = '2026-11-21 v59';
+const BUILD = '2026-11-22 v60';
 /* The Call Sheet lives on the same site (jibboo72.github.io), so its saved
    data and its published odds file are both readable from here. */
 const CS_KEY = 'nfl-call-sheet-v3';
@@ -4977,6 +4977,8 @@ VIEWS.league = {
       return {ctx, evs: parts.flat().filter(e => !seen.has(e.id) && seen.add(e.id))};
     }
     const evs = await board(l, p.date);
+    /* NFL gets the full Tonight-style cards, so load box scores for prop bets too */
+    if (l.key === 'nfl'){ const nevs = evs.map(e => norm(e, l.key)); await attachBoxes(nevs).catch(() => {}); return {ctx, evs, nevs}; }
     return {ctx, evs};
   },
   build(p, d, avail){
@@ -4999,13 +5001,14 @@ VIEWS.league = {
     if (mode === 'standings') return html + standingsBody(l, d.stand, p, room);
     if (mode === 'rankings') return html + rankingsBody(l, d.rank, p, room);
     if (l.type === 'team'){
-      let evs = d.evs.map(e => norm(e, l.key)).sort(sortEvents);
+      let evs = (d.nevs || d.evs.map(e => norm(e, l.key))).slice().sort(sortEvents);
       if (l.key === 'cbb') evs = cbbFilter(evs, d.confs || [], d.ck);
       gradeEvents(evs);
-      const per = perPage(room, 130, 79, 2);
+      const cards = l.key === 'nfl';
+      const per = cards ? perPage(room, 130, 128, 1) : perPage(room, 130, 79, 2);
       const pg = slicePage(evs, per, p.page);
       return html + `<div style="margin-top:10px">${dateNav(p.date, dt => setP({date: dt, page: 0}))}</div>${p.date === today() && evs.some(e => e.state === 'in') ? `<div style="margin-top:6px;text-align:center">${updLine()}</div>` : ''}
-        <div style="margin-top:6px">${pg.items.length ? pg.items.map(ev => gameRow(ev, () => go('game', {lg: ev.lg, path: ev.path, id: ev.id}), d.ctx)).join('') : '<div class="empty">No games on this day.</div>'}</div>
+        <div class="${cards ? 'stack' : ''}" style="margin-top:${cards ? 10 : 6}px">${pg.items.length ? pg.items.map(ev => cards ? gameCard(ev, d.ctx) : gameRow(ev, () => go('game', {lg: ev.lg, path: ev.path, id: ev.id}), d.ctx)).join('') : '<div class="empty">No games on this day.</div>'}</div>
         ${pager(pg.page, pg.pages, n => setP({page: n}))}`;
     }
     if (l.type === 'golf') return html + golfBody(d.evs, p, room);
