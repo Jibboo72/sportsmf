@@ -461,6 +461,9 @@ textarea{padding:10px 12px;min-height:110px;font-size:14px}
 .spst{font:500 13px/1.35 var(--body);margin-top:5px;display:flex;flex-wrap:wrap;gap:4px 6px;align-items:center}
 .catchup{font:500 13px/1.35 var(--body);color:var(--ink);background:var(--soft);border-left:3px solid var(--blue);border-radius:8px;padding:5px 8px;margin-top:6px}
 .catchup .cuh{color:var(--blue);font-weight:700}
+.sitl{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:6px;font:700 16px var(--body);color:var(--ink);text-align:center}
+.cardf{padding:6px 12px 2px}.cardf .minif{max-width:none}
+.minif{width:100%;max-width:300px;height:auto;display:block;margin:2px auto 0}
 </style>
 </head>
 <body>
@@ -533,7 +536,7 @@ const TEAM_LGS = LEAGUES.filter(l => l.type === 'team');
 const COLLEGE_LGS = LEAGUES.filter(l => l.college);
 const BOOKS = ['DraftKings','FanDuel','Bet365','BetMGM','Fanatics','Hard Rock','theScore','BetRivers','betPARX','Caesars','ESPN BET'];
 const BOOK_MAP = {draftkings:'DraftKings', fanduel:'FanDuel', betmgm:'BetMGM', caesars:'Caesars', espnbet:'ESPN BET', bet365:'Bet365', fanatics:'Fanatics', hardrock:'Hard Rock', hardrockbet:'Hard Rock', betrivers:'BetRivers', thescore:'theScore', betparx:'betPARX'};
-const BUILD = '2026-11-20 v58';
+const BUILD = '2026-11-21 v59';
 /* The Call Sheet lives on the same site (jibboo72.github.io), so its saved
    data and its published odds file are both readable from here. */
 const CS_KEY = 'nfl-call-sheet-v3';
@@ -1267,6 +1270,63 @@ async function attachBoxes(evs){
   const need = evs.filter(e => e.state !== 'pre' && /football|hockey|basketball/.test(e.path || '') && betsFor(e).some(b => b.status === 'open' && !betRead(b, e)));
   await Promise.allSettled(need.map(async e => { e._s = await getJSON(`${BASE}${e.path}/summary?event=${e.id}`, 20000); }));
 }
+/* Football: the game summary often leaves out the "2nd & 6 at GB 34" text
+   the scoreboard has, so build it from the situation numbers or from the
+   last snap of the current drive, and note the drive in progress. */
+function fbSitFill(ev, s){
+  if (!/football/.test(ev.path || '') || ev.state !== 'in' || !s) return;
+  const si = s.situation || {}, dr = s.drives || {}, cur = dr.current || null;
+  const lastP = cur ? (cur.plays || []).filter(x => x && x.end).slice(-1)[0] : null;
+  const end = (lastP && lastP.end) || {};
+  const done = !!(cur && (cur.shortDisplayResult || cur.result));
+  const poss = si.possession ? String(si.possession) : ev.sit.poss || (cur && !done && cur.team ? String(cur.team.id) : '');
+  const off = poss === String(ev.home.id) ? ev.home : poss === String(ev.away.id) ? ev.away : null;
+  const down = +(si.down ?? (done ? 0 : end.down)) || 0, dist = si.distance ?? end.distance;
+  const pt = String(si.possessionText || (done ? '' : end.possessionText) || '').trim();
+  let txt = ev.sit.text || si.downDistanceText || (done ? '' : end.downDistanceText) || '';
+  if (!txt && down > 0 && down < 5) txt = `${ORD(down)} & ${dist === undefined || dist === null ? '' : (+dist <= 0 ? 'Goal' : dist)}`;
+  if (txt && pt && !/ at /i.test(txt)) txt += ' at ' + pt;
+  let yte = null;
+  if (si.yardsToEndzone !== undefined && si.yardsToEndzone !== null) yte = +si.yardsToEndzone;
+  else if (pt && off) yte = yteOf({possessionText: pt}, off.abbr);
+  else if (!done && end.yardsToEndzone !== undefined) yte = +end.yardsToEndzone;
+  if (yte !== null && (isNaN(yte) || yte < 1 || yte > 99)) yte = null;
+  if (txt && !/ at /i.test(txt) && yte !== null && off){
+    const dfn = off === ev.home ? ev.away : ev.home;
+    txt += ' at ' + (yte === 50 ? '50' : yte < 50 ? `${dfn.abbr} ${yte}` : `${off.abbr} ${100 - yte}`);
+  }
+  const rz = ev.sit.rz || !!si.isRedZone || (yte !== null && yte <= 20);
+  let drive = null;
+  if (cur && !done && off){
+    const n = cur.offensivePlays !== undefined ? +cur.offensivePlays : (cur.plays || []).filter(x => x && x.text && !/kickoff|timeout/i.test((x.type && x.type.text) || '')).length;
+    const yds = cur.yards !== undefined ? +cur.yards : null, tm = cur.timeElapsed && cur.timeElapsed.displayValue;
+    drive = `${off.abbr} drive: ${n} play${n === 1 ? '' : 's'}${yds !== null ? `, ${yds} yd${Math.abs(yds) === 1 ? '' : 's'}` : ''}${tm ? ', ' + tm : ''}`;
+  }
+  ev.sit = Object.assign(ev.sit, {text: txt, poss, rz, yte, dist: +dist || null, drive});
+}
+/* a thin field under the live score: offense always drives left to right */
+function miniField(ev){
+  const si = Object.assign({}, ev.sit || {});
+  if (ev.state !== 'in' || !/football/.test(ev.path || '') || !si.poss) return '';
+  const off = si.poss === String(ev.home.id) ? ev.home : si.poss === String(ev.away.id) ? ev.away : null;
+  if (!off) return '';
+  /* scoreboard games only carry the text: "2nd & 6 at GB 34" */
+  const m = String(si.text || '').match(/& (\d+|goal) at (.+?)(?: · |$)/i);
+  if ((si.yte === null || si.yte === undefined) && m) si.yte = yteOf({possessionText: m[2].trim()}, off.abbr);
+  if (!si.dist && m && /^\d+$/.test(m[1])) si.dist = +m[1];
+  if (si.yte === null || si.yte === undefined || isNaN(si.yte)) return '';
+  if (si.yte <= 20) si.rz = true;
+  const def = off === ev.home ? ev.away : ev.home;
+  const W = 300, H = 22, EZ = 22, Y = (W - 2 * EZ) / 100, X = yd => EZ + Math.max(0, Math.min(100, yd)) * Y;
+  const oc = teamCol(off, '#1F4E8C'), dc = teamCol(def, '#8C1F2B'), ball = 100 - si.yte;
+  let g = `<rect width="${W}" height="${H}" rx="5" fill="#2E7D32"/><rect width="${EZ}" height="${H}" rx="5" fill="${oc}"/><rect x="${W - EZ}" width="${EZ}" height="${H}" rx="5" fill="${dc}"/>`;
+  if (si.rz) g += `<rect x="${X(80)}" width="${20 * Y}" height="${H}" fill="rgba(213,10,10,.25)"/>`;
+  for (let i = 1; i < 10; i++) g += `<line x1="${X(i * 10)}" y1="0" x2="${X(i * 10)}" y2="${H}" stroke="rgba(255,255,255,${i === 5 ? .8 : .35})"/>`;
+  g += `<text x="${EZ / 2}" y="${H / 2 + 4}" fill="${inkOn(oc)}" font-family="Saira Condensed,system-ui" font-weight="800" font-size="10" text-anchor="middle">${esc(off.abbr || '')}</text><text x="${W - EZ / 2}" y="${H / 2 + 4}" fill="${inkOn(dc)}" font-family="Saira Condensed,system-ui" font-weight="800" font-size="10" text-anchor="middle">${esc(def.abbr || '')}</text>`;
+  if (si.dist && ball + si.dist < 100) g += `<line x1="${X(ball + si.dist)}" y1="1" x2="${X(ball + si.dist)}" y2="${H - 1}" stroke="#F5D90A" stroke-width="2.5"/>`;
+  g += `<line x1="${X(ball)}" y1="1" x2="${X(ball)}" y2="${H - 1}" stroke="#3A9BDC" stroke-width="2.5"/><ellipse cx="${X(ball)}" cy="${H / 2}" rx="6" ry="4" fill="#8B4A1E" stroke="#fff" stroke-width="1"/>`;
+  return `<svg class="minif" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(off.abbr || '')} ball, ${si.yte} yards to the end zone">${g}</svg>`;
+}
 function sitText(ev){
   const si = ev.sit || {};
   if (si.text && /football/.test(ev.path || LG[ev.lg].path)) return si.text + (si.rz ? ' · Red zone' : '');
@@ -1490,8 +1550,8 @@ function gameCard(ev, ctx){
     return `<div class="tm">${logo(t.logo)}<span class="nm"><span data-h="${h(() => go('team', {lg: ev.lg, id: t.id, t: tsnap(t)}))}">${t.rank ? `<span class="rk">${t.rank}</span>` : ''}${esc(t.short)}</span>${mark(t)}${poss(t)}</span>${teamInfo(ev, t, side)}${right}</div>`;
   };
   const sit = ev.state === 'in' ? sitText(ev) : '';
-  const cu = catchUp(ev);
-  const bands = (cu ? `<div class="catchup">${cu}</div>` : '') + bs.slice(0, 3).map(b => betBand(b, ev, null, null, ev._s)).join('') + (bs.length > 3 ? `<div class="bband"><span>+${bs.length - 3} more bets</span></div>` : '');
+  const cu = catchUp(ev), mf = miniField(ev);
+  const bands = (mf ? `<div class="cardf">${mf}</div>` : '') + (cu ? `<div class="catchup">${cu}</div>` : '') + bs.slice(0, 3).map(b => betBand(b, ev, null, null, ev._s)).join('') + (bs.length > 3 ? `<div class="bband"><span>+${bs.length - 3} more bets</span></div>` : '');
   return `<button class="card" data-h="${h(() => go('game', {lg: ev.lg, path: ev.path, id: ev.id}))}">
     <div class="meta"><span>${esc(LG[ev.lg].short)}</span><span class="r">${statusText(ev)}</span></div>
     ${row(ev.away, ev.home, ev.odds.awayML, 'away')}
@@ -4231,6 +4291,7 @@ VIEWS.game = {
       const si = s.situation;
       ev.sit = Object.assign(ev.sit, {text: si.downDistanceText || si.shortDownDistanceText || '', poss: si.possession ? String(si.possession) : ev.sit.poss, rz: !!si.isRedZone});
     }
+    fbSitFill(ev, s);
     const pc = s.pickcenter && s.pickcenter[0];
     if (pc && !ev.odds.details && ev.odds.ou === undefined){
       ev.odds = {details: pc.details, ou: pc.overUnder, homeML: pc.homeTeamOdds && pc.homeTeamOdds.moneyLine, awayML: pc.awayTeamOdds && pc.awayTeamOdds.moneyLine};
@@ -4281,7 +4342,7 @@ VIEWS.game = {
     const sit = ev.state === 'in' ? sitText(ev) : '';
     const mid = ev.state === 'pre'
       ? `<div class="mid"><div class="scr" style="font-size:34px">${esc(tm(ev.date))}</div><div class="st" style="color:var(--muted)">${esc(fromDate(ev.date))}${ev.net ? ' · ' + esc(ev.net) : ''}</div></div>`
-      : `<div class="mid"><div class="scr"><span class="${flashCls(ev, 'away').trim()}">${esc(ev.away.score)}</span>–<span class="${flashCls(ev, 'home').trim()}">${esc(ev.home.score)}</span></div><div class="st ${ev.state === 'in' ? 'livec' : ''}">${ev.state === 'in' ? liveDot : ''}${esc(ev.detail)}</div>${sit ? `<div class="sub" style="font-weight:600;text-align:center">${esc(sit)}</div>` : ''}${ev.state === 'in' ? updLine() : ''}</div>`;
+      : `<div class="mid"><div class="scr"><span class="${flashCls(ev, 'away').trim()}">${esc(ev.away.score)}</span>–<span class="${flashCls(ev, 'home').trim()}">${esc(ev.home.score)}</span></div><div class="st ${ev.state === 'in' ? 'livec' : ''}">${ev.state === 'in' ? liveDot : ''}${esc(ev.detail)}</div>${sit ? `<div class="sitl">${ev.sit.poss ? ballBadge(ev, ev.sit.poss === String(ev.home.id) ? 'home' : ev.sit.poss === String(ev.away.id) ? 'away' : null) : ''}<span>${esc(sit)}</span></div>` : ''}${miniField(ev)}${ev.sit && ev.sit.drive && /football/.test(ev.path || '') ? `<div class="sub" style="text-align:center">${esc(ev.sit.drive)}</div>` : ''}${ev.state === 'in' ? updLine() : ''}</div>`;
     const segBtn = (k, l) => `<button class="${t === k ? 'on' : ''}" data-h="${h(() => setP({tab: k, page: 0}))}">${l}</button>`;
     const tabs = gameTabs(ev);
     const bets = betsFor(ev);
